@@ -1,0 +1,3 @@
+[submodule "3rdParty/HGBO-DSE"]
+	path = 3rdParty/HGBO-DSE
+	url = https://github.com/jwwang2003/HGBO-DSE.git

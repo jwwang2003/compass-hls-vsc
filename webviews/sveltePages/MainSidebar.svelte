@@ -98,6 +98,7 @@
     );
 
     window.addEventListener("message", handleMessage as EventListener);
+    vscode_comm.postMessage({ type: "ready", value: "" });
     vscode_comm.postMessage({ type: "getSavedProjects", value: "" });
     vscode_comm.postMessage({ type: "getAutoDiscoverStatus", value: "" });
     vscode_comm.postMessage({ type: "getRemoteInferenceConfig", value: "" });

@@ -119,7 +119,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "node --test out/test/**/*.test.js"
   },
   "devDependencies": {
     "@rollup/plugin-alias": "^6.0.0",

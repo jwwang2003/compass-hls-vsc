@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import type { HgboRunResultsPayload, HgboRunSummary } from "../services/hgboDseRunner";
 import { getNonce } from "../utilities/getNonce";
+import { versionedWebviewUri } from "../utilities/webviewCacheBust";
 
 export class ResultPanel {
     public static currentPanel: ResultPanel | undefined;
@@ -11,6 +12,7 @@ export class ResultPanel {
     private pendingData: HgboRunResultsPayload = createEmptyResultsPayload();
     private onSelectRun: ((runId: string) => Promise<void> | void) | undefined;
     private onVerifyImpl: ((runId: string, trials: number[]) => Promise<void> | void) | undefined;
+    private webviewResourceVersion = 0;
 
     public static createOrShow(extensionUri: vscode.Uri, inferenceId = "latest"): ResultPanel {
         const column = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
@@ -33,6 +35,10 @@ export class ResultPanel {
 
         ResultPanel.currentPanel = new ResultPanel(panel, extensionUri, inferenceId);
         return ResultPanel.currentPanel;
+    }
+
+    public static reloadCurrentWebview() {
+        ResultPanel.currentPanel?.reloadWebview();
     }
 
     private constructor(
@@ -113,6 +119,11 @@ export class ResultPanel {
         });
     }
 
+    public reloadWebview() {
+        this.webviewResourceVersion += 1;
+        this.update();
+    }
+
     private setInferenceId(inferenceId: string) {
         this.inferenceId = inferenceId;
         this.panel.title = `Compass Results - ${this.inferenceId}`;
@@ -141,18 +152,18 @@ export class ResultPanel {
 
     private getHtmlForWebview(webview: vscode.Webview): string {
         const nonce = getNonce();
-        const resetUri = webview.asWebviewUri(
+        const resetUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "reset.css")
-        );
-        const vscodeStyleUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const vscodeStyleUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "vscode.css")
-        );
-        const scriptUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const scriptUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "Result.js")
-        );
-        const styleUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const styleUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "Result.css")
-        );
+        ), this.webviewResourceVersion);
 
         return `<!DOCTYPE html>
             <html lang="en">

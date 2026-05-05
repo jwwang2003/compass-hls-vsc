@@ -50,7 +50,7 @@ export interface HgboProgress {
 export function createDefaultDseOptions(): DseOptions {
     return {
         mode: "hgp",
-        bench: "MachSuite",
+        bench: "custom",
         caseName: "bfs",
         ver: "bulk",
         num: 100,
@@ -63,6 +63,15 @@ export function createDefaultDseOptions(): DseOptions {
         process: 1,
         inferenceMode: "host",
     };
+}
+
+export function assertDsePathNames(options: DseOptions): void {
+    for (const { key, label } of DSE_PATH_NAME_FIELDS) {
+        const value = options[key];
+        if (!isPlainPathName(value)) {
+            throw new Error(`${label} must be a single path name without path separators or dot segments.`);
+        }
+    }
 }
 
 export function normalizeDseOptions(input: unknown): DseOptions {
@@ -84,6 +93,23 @@ export function normalizeDseOptions(input: unknown): DseOptions {
         process: boundedInteger(record.process ?? record.processNum, defaults.process, 1, 1024),
         inferenceMode: enumValue(record.inferenceMode, DSE_INFERENCE_MODES, defaults.inferenceMode),
     };
+}
+
+const DSE_PATH_NAME_FIELDS: Array<{
+    key: "bench" | "caseName" | "ver";
+    label: string;
+}> = [
+    { key: "bench", label: "Benchmark" },
+    { key: "caseName", label: "Case" },
+    { key: "ver", label: "Version" },
+];
+
+function isPlainPathName(value: string): boolean {
+    return value.length > 0 &&
+        value !== "." &&
+        value !== ".." &&
+        !/[\\/]/.test(value) &&
+        !value.includes("\0");
 }
 
 export function buildHgboDseArgs(options: DseOptions, paths: HgboDsePathOptions): string[] {

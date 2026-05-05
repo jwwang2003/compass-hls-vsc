@@ -61,6 +61,13 @@ test("MainSidebar sends DSE options with package and inference requests", () => 
     assert.match(source, /dse:\s*dseOptions/);
 });
 
+test("webview DSE defaults use custom as the packaged benchmark namespace", () => {
+    const source = readFileSync(path.join(process.cwd(), "webviews", "modules", "dseOptions.ts"), "utf8");
+
+    assert.match(source, /bench:\s*["']custom["']/);
+    assert.doesNotMatch(source, /bench:\s*["']MachSuite["']/);
+});
+
 test("DSE config text and number inputs share the same control height", () => {
     const source = readFileSync(path.join(process.cwd(), "webviews", "components", "DseConfig.svelte"), "utf8");
 
@@ -386,6 +393,25 @@ test("Result panel discovers runs before lazily loading selected run details", (
     assert.match(runnerSource, /export async function readHgboRunDetails/);
     assert.doesNotMatch(runnerSource, /const runs = await listHgboRuns\(workspaceUri\);\s*if \(runs\.length === 0\)/);
     assert.match(panelSource, /renderRunList/);
+});
+
+test("extension hot reloads active webviews from rebuilt compiled assets in development mode", () => {
+    const extensionSource = readFileSync(path.join(process.cwd(), "src", "extension.ts"), "utf8");
+    const hotReloadSource = readFileSync(path.join(process.cwd(), "src", "utilities", "webviewHotReload.ts"), "utf8");
+    const sidebarSource = readFileSync(path.join(process.cwd(), "src", "providers", "CompassSidebar.ts"), "utf8");
+    const panelSource = readFileSync(path.join(process.cwd(), "src", "providers", "ResultPanel.ts"), "utf8");
+    const mainSidebarSource = readFileSync(path.join(process.cwd(), "webviews", "sveltePages", "MainSidebar.svelte"), "utf8");
+
+    assert.match(hotReloadSource, /ExtensionMode\.Development/);
+    assert.match(hotReloadSource, /out\/compiled\/\*\.\{js,css\}/);
+    assert.match(extensionSource, /registerWebviewHotReload/);
+    assert.match(extensionSource, /ResultPanel\.reloadCurrentWebview/);
+    assert.match(sidebarSource, /webviewResourceVersion/);
+    assert.match(sidebarSource, /public reloadWebview\(\)/);
+    assert.match(sidebarSource, /case\s+["']ready["']/);
+    assert.match(panelSource, /webviewResourceVersion/);
+    assert.match(panelSource, /public static reloadCurrentWebview\(\)/);
+    assert.match(mainSidebarSource, /postMessage\(\{\s*type:\s*["']ready["']/);
 });
 
 test("yaml generation uses HGBO-DSE params.yaml filename", () => {

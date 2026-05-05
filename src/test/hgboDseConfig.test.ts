@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    assertDsePathNames,
     buildHgboImplVerifyArgs,
     buildHgboDseArgs,
     createDefaultDseOptions,
@@ -41,13 +42,39 @@ test("normalizes DSE options to HGBO-DSE defaults and supported values", () => {
     });
 });
 
+test("defaults packaged DSE benchmark namespace to custom", () => {
+    assert.equal(createDefaultDseOptions().bench, "custom");
+    assert.equal(normalizeDseOptions(undefined).bench, "custom");
+    assert.equal(normalizeDseOptions({ bench: "" }).bench, "custom");
+});
+
+test("rejects DSE path fields that are not plain path names", () => {
+    for (const input of [
+        { bench: "../MachSuite" },
+        { caseName: "bfs/escape" },
+        { ver: ".." },
+        { ver: "bulk\\escape" },
+    ]) {
+        assert.throws(
+            () => assertDsePathNames(normalizeDseOptions(input)),
+            /must be a single path name/
+        );
+    }
+
+    assert.doesNotThrow(() => assertDsePathNames(normalizeDseOptions({
+        bench: "MachSuite",
+        caseName: "bfs",
+        ver: "bulk",
+    })));
+});
+
 test("builds HGBO-DSE CLI args for packaged Compass paths", () => {
     const args = buildHgboDseArgs(
         normalizeDseOptions({ caseName: "viterbi", ver: "viterbi", num: 5 }),
         {
             configPath: "/workspace/.compass/hgbo-package/config.yaml",
             paramsPath: "/workspace/.compass/hgbo-package/params.yaml",
-            projectPath: "/workspace/.compass/hgbo-package/benchmark/MachSuite/viterbi/viterbi",
+            projectPath: "/workspace/.compass/hgbo-package/benchmark/custom/viterbi/viterbi",
             isolatedPath: "/workspace/.compass/runs/run-1",
         }
     );
@@ -59,7 +86,7 @@ test("builds HGBO-DSE CLI args for packaged Compass paths", () => {
         "--mode",
         "hgp",
         "--bench",
-        "MachSuite",
+        "custom",
         "--case",
         "viterbi",
         "--ver",
@@ -89,7 +116,7 @@ test("builds HGBO-DSE CLI args for packaged Compass paths", () => {
         "--params-path",
         "/workspace/.compass/hgbo-package/params.yaml",
         "--project-path",
-        "/workspace/.compass/hgbo-package/benchmark/MachSuite/viterbi/viterbi",
+        "/workspace/.compass/hgbo-package/benchmark/custom/viterbi/viterbi",
     ]);
 });
 
@@ -99,7 +126,7 @@ test("builds HGBO-DSE implementation verification CLI args for selected trials",
         {
             configPath: "/workspace/.compass/runs/run-1/package/config.yaml",
             paramsPath: "/workspace/.compass/runs/run-1/package/params.yaml",
-            projectPath: "/workspace/.compass/runs/run-1/package/benchmark/MachSuite/bfs/bulk",
+            projectPath: "/workspace/.compass/runs/run-1/package/benchmark/custom/bfs/bulk",
             isolatedPath: "/workspace/.compass/runs/run-1/impl-verification/verify-1",
             selectionPath: "/workspace/.compass/runs/run-1/impl-verification/verify-1/selected_trials.json",
             outputPath: "/workspace/.compass/runs/run-1/impl_verification.json",
@@ -111,7 +138,7 @@ test("builds HGBO-DSE implementation verification CLI args for selected trials",
         "-m",
         "bome.impl_verify",
         "--bench",
-        "MachSuite",
+        "custom",
         "--case",
         "bfs",
         "--ver",
@@ -135,7 +162,7 @@ test("builds HGBO-DSE implementation verification CLI args for selected trials",
         "--params-path",
         "/workspace/.compass/runs/run-1/package/params.yaml",
         "--project-path",
-        "/workspace/.compass/runs/run-1/package/benchmark/MachSuite/bfs/bulk",
+        "/workspace/.compass/runs/run-1/package/benchmark/custom/bfs/bulk",
         "--selection-path",
         "/workspace/.compass/runs/run-1/impl-verification/verify-1/selected_trials.json",
         "--output-path",

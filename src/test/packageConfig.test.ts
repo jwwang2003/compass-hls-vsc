@@ -11,3 +11,9 @@ test("package.json contributes remote inference MCP endpoint setting", () => {
     assert.equal(setting.default, "http://localhost:8000/mcp");
     assert.match(setting.description, /MCP/i);
 });
+
+test("package.json test script runs the compiled node test suite", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+
+    assert.equal(packageJson.scripts.test, "node --test out/test/**/*.test.js");
+});

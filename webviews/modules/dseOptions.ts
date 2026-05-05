@@ -62,7 +62,7 @@ export type DseLog = {
 export function createDefaultDseOptions(): DseOptions {
   return {
     mode: "hgp",
-    bench: "MachSuite",
+    bench: "custom",
     caseName: "bfs",
     ver: "bulk",
     num: 100,

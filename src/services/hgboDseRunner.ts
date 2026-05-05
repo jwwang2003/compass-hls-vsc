@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 
 import type { DisplayFile } from "./yamlService";
 import {
+    assertDsePathNames,
     buildHgboImplVerifyArgs,
     buildHgboDseArgs,
     type DseOptions,
@@ -202,6 +203,8 @@ export async function prepareHgboDsePackage(
     options: DseOptions,
     progress?: vscode.Progress<{ message?: string; increment?: number }>
 ): Promise<CompassDsePackage> {
+    assertDsePathNames(options);
+
     const compassUri = vscode.Uri.joinPath(workspaceFolder.uri, ".compass");
     const packageRootUri = vscode.Uri.joinPath(compassUri, PACKAGE_DIR);
     const configSourceUri = await findFirstExisting([
@@ -277,6 +280,8 @@ export async function runHgboDse(
     callbacks: HgboDseRunCallbacks = {},
     remoteInference?: RemoteInferenceRuntime
 ): Promise<HgboDseRunResult> {
+    assertDsePathNames(options);
+
     const hgboRootUri = vscode.Uri.joinPath(extensionUri, "3rdParty", "HGBO-DSE");
     await vscode.workspace.fs.stat(hgboRootUri);
 
@@ -368,6 +373,8 @@ export async function runHgboImplVerification(
     pythonPath: string,
     callbacks: HgboDseRunCallbacks = {}
 ): Promise<void> {
+    assertDsePathNames(options);
+
     const hgboRootUri = vscode.Uri.joinPath(extensionUri, "3rdParty", "HGBO-DSE");
     await vscode.workspace.fs.stat(hgboRootUri);
 

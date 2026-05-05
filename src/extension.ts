@@ -19,8 +19,10 @@ import {
 	LOOP_DIRECTIVES,
 } from './parser/tdmConfigModel';
 import { CompassSidebar } from './providers/CompassSidebar';
+import { ResultPanel } from './providers/ResultPanel';
 
 import { getVitisHLSInfo } from './utilities/checkVitis';
+import { registerWebviewHotReload } from './utilities/webviewHotReload';
 import {
 	applyVivadoEnvironment,
 	COMPATIBLE_VIVADO_VERSION,
@@ -242,6 +244,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			{ webviewOptions: { retainContextWhenHidden: true } }
 		)
 	);
+
+	registerWebviewHotReload(context, [
+		compassSidebar,
+		{ reloadWebview: () => ResultPanel.reloadCurrentWebview() },
+	]);
 
 	// ===========================================================================
 	// ======================= Debugging tools & commands ========================

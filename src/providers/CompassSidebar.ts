@@ -32,6 +32,7 @@ import {
 } from "../services/remoteInferenceSecrets";
 import { TdmConfigService } from "../parser/tdmConfigService";
 import { getNonce } from "../utilities/getNonce";
+import { versionedWebviewUri } from "../utilities/webviewCacheBust";
 import type { VivadoDiscoveryStatus } from "../utilities/vivadoDiscovery";
 import { ResultPanel } from "./ResultPanel";
 import { Sidebar } from "./Sidebar";
@@ -44,6 +45,7 @@ export class CompassSidebar implements Sidebar {
     private latestDseFiles: DisplayFile[] = [];
     private resultsLoadRequestId = 0;
     private resultRuns: HgboRunSummary[] = [];
+    private webviewResourceVersion = 0;
     private readonly remoteInferenceSecrets: RemoteInferenceSecrets;
 
     constructor(
@@ -65,10 +67,7 @@ export class CompassSidebar implements Sidebar {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
         webviewView.webview.onDidReceiveMessage(this.handleMessage.bind(this));
-        this.postLocalSupport();
-        this.postProjectStatus();
-        this.postAutoDiscoverStatus();
-        this.postRemoteInferenceConfig();
+        void this.postInitialState();
     }
 
     public setLocalSupport(isSupported: boolean, vivadoDiscovery?: VivadoDiscoveryStatus) {
@@ -88,6 +87,9 @@ export class CompassSidebar implements Sidebar {
                 if (data.value) {
                     vscode.window.showErrorMessage(data.value);
                 }
+                break;
+            case "ready":
+                await this.postInitialState();
                 break;
             case "generateYamlFiles":
             case "generateYamls":
@@ -149,15 +151,15 @@ export class CompassSidebar implements Sidebar {
         }
     }
 
-    private async handleGenerateYamlFiles(paramValues?: ParamYamlMetricInputs) {
+    private async handleGenerateYamlFiles(paramValues?: ParamYamlMetricInputs): Promise<boolean> {
         const workspaceFolder = this.getWorkspaceFolder();
         if (!workspaceFolder) {
             vscode.window.showErrorMessage("No workspace folder is open.");
-            return;
+            return false;
         }
 
         const outputDirectory = await chooseYamlOutputDirectory(workspaceFolder.uri);
-        await vscode.window.withProgress(
+        return vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: "Generating YAML from C source...",
@@ -177,27 +179,29 @@ export class CompassSidebar implements Sidebar {
                         files,
                     });
                     vscode.window.showInformationMessage(`YAML files generated in ${outputDirectory.fsPath}`);
+                    return true;
                 } catch (err: unknown) {
                     vscode.window.showErrorMessage(`YAML generation failed: ${this.getErrorMessage(err)}`);
+                    return false;
                 }
             }
         );
     }
 
-    private async handleUpload(dseOptions: DseOptions = normalizeDseOptions(undefined)) {
+    private async handleUpload(dseOptions: DseOptions = normalizeDseOptions(undefined)): Promise<boolean> {
         const workspaceFolder = this.getWorkspaceFolder();
         if (!workspaceFolder) {
             vscode.window.showErrorMessage("No workspace folder is open.");
-            return;
+            return false;
         }
 
         const compassUri = vscode.Uri.joinPath(workspaceFolder.uri, ".compass");
         if (!await this.pathExists(compassUri)) {
             vscode.window.showInformationMessage("Initialize Compass before packaging .compass.");
-            return;
+            return false;
         }
 
-        await vscode.window.withProgress(
+        return vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: "Packaging .compass for Inference + DSE...",
@@ -223,6 +227,7 @@ export class CompassSidebar implements Sidebar {
                         message: `${dsePackage.files.length} files packaged for Inference + DSE.`,
                     });
                     vscode.window.showInformationMessage(`.compass package ready for Inference + DSE (${dsePackage.files.length} files).`);
+                    return true;
                 } catch (err: unknown) {
                     const message = this.getErrorMessage(err);
                     this.postDseStatus({
@@ -233,6 +238,7 @@ export class CompassSidebar implements Sidebar {
                         error: message,
                     });
                     vscode.window.showErrorMessage(`Failed to package .compass: ${message}`);
+                    return false;
                 }
             }
         );
@@ -434,21 +440,21 @@ export class CompassSidebar implements Sidebar {
         );
     }
 
-    private async handleRunInference(dseOptions: DseOptions = normalizeDseOptions(undefined)) {
+    private async handleRunInference(dseOptions: DseOptions = normalizeDseOptions(undefined)): Promise<boolean> {
         const workspaceFolder = this.getWorkspaceFolder();
         if (!workspaceFolder) {
             vscode.window.showErrorMessage("No workspace folder is open.");
-            return;
+            return false;
         }
 
         const compassUri = vscode.Uri.joinPath(workspaceFolder.uri, ".compass");
         if (!await this.pathExists(compassUri)) {
             vscode.window.showInformationMessage("Package .compass before running Inference + DSE.");
-            return;
+            return false;
         }
 
         let notificationProgress = 0;
-        await vscode.window.withProgress(
+        return vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: "Running Inference + DSE from .compass...",
@@ -487,6 +493,7 @@ export class CompassSidebar implements Sidebar {
                         files: this.latestDseFiles,
                     });
                     vscode.window.showInformationMessage("Inference + DSE complete.");
+                    return true;
                 } catch (err: unknown) {
                     const message = this.getErrorMessage(err);
                     this.postDseStatus({
@@ -497,15 +504,22 @@ export class CompassSidebar implements Sidebar {
                         error: message,
                     });
                     vscode.window.showErrorMessage(`Inference + DSE failed: ${message}`);
+                    return false;
                 }
             }
         );
     }
 
     private async handleRunAll(paramValues?: ParamYamlMetricInputs, dseOptions: DseOptions = normalizeDseOptions(undefined)) {
-        await this.handleGenerateYamlFiles(paramValues);
-        await this.handleUpload(dseOptions);
-        await this.handleRunInference(dseOptions);
+        if (!await this.handleGenerateYamlFiles(paramValues)) {
+            return;
+        }
+        if (!await this.handleUpload(dseOptions)) {
+            return;
+        }
+        if (!await this.handleRunInference(dseOptions)) {
+            return;
+        }
         await this.handleShowInference();
     }
 
@@ -853,19 +867,36 @@ export class CompassSidebar implements Sidebar {
         this._view = panel;
     }
 
+    public reloadWebview() {
+        if (!this._view) {
+            return;
+        }
+
+        this.webviewResourceVersion += 1;
+        this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+    }
+
+    private async postInitialState() {
+        this.postLocalSupport();
+        await this.postProjectStatus();
+        this.postAutoDiscoverStatus();
+        await this.postRemoteInferenceConfig();
+        await this.postSavedProjects();
+    }
+
     public _getHtmlForWebview(webview: vscode.Webview): string {
-        const styleResetUri = webview.asWebviewUri(
+        const styleResetUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "reset.css")
-        );
-        const styleVSCodeUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const styleVSCodeUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "vscode.css")
-        );
-        const scriptUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const scriptUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "MainSidebar.js")
-        );
-        const styleMainUri = webview.asWebviewUri(
+        ), this.webviewResourceVersion);
+        const styleMainUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "MainSidebar.css")
-        );
+        ), this.webviewResourceVersion);
         const nonce = getNonce();
 
         return `<!DOCTYPE html>

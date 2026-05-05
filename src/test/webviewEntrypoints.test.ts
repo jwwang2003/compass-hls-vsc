@@ -15,13 +15,15 @@ for (const entrypoint of entrypoints) {
     });
 }
 
-test("MainSidebar exposes Flow and Dense display modes", () => {
+test("MainSidebar exposes Flow and More display modes", () => {
     const source = readFileSync(path.join(process.cwd(), "webviews", "sveltePages", "MainSidebar.svelte"), "utf8");
 
-    assert.match(source, /type\s+DisplayMode\s*=\s*["']flow["']\s*\|\s*["']dense["']/);
+    assert.match(source, /type\s+DisplayMode\s*=\s*["']flow["']\s*\|\s*["']more["']/);
     assert.match(source, /let\s+displayMode:\s*DisplayMode\s*=\s*["']flow["']/);
     assert.match(source, /Flow/);
-    assert.match(source, /Dense/);
+    assert.match(source, /More/);
+    assert.doesNotMatch(source, /DenseDashboard/);
+    assert.doesNotMatch(source, /["']dense["']/);
 });
 
 test("MainSidebar preserves Compass workflow command messages", () => {
@@ -92,7 +94,7 @@ test("MainSidebar accepts and renders Vivado discovery status", () => {
     assert.match(source, /vivadoDiscovery\s*=\s*msg\.vivadoDiscovery/);
     assert.match(source, /<VivadoInstallations\s+\{vivadoDiscovery\}/);
     assert.match(source, /<ProjectSummary[\s\S]*\{vivadoDiscovery\}/);
-    assert.match(source, /<DenseDashboard[\s\S]*\{vivadoDiscovery\}/);
+    assert.match(source, /<MoreDashboard[\s\S]*\{vivadoDiscovery\}/);
 });
 
 test("VivadoInstallations lists installs and marks the selected version", () => {
@@ -136,12 +138,12 @@ test("package.json contributes a manual Vivado settings64 path setting", () => {
 
 test("webview labels package .compass and name inference as Inference + DSE", () => {
     const workflowSource = readFileSync(path.join(process.cwd(), "webviews", "components", "WorkflowSteps.svelte"), "utf8");
-    const denseSource = readFileSync(path.join(process.cwd(), "webviews", "components", "DenseDashboard.svelte"), "utf8");
+    const moreSource = readFileSync(path.join(process.cwd(), "webviews", "components", "MoreDashboard.svelte"), "utf8");
 
     assert.match(workflowSource, /Package \.compass/);
     assert.match(workflowSource, /Inference \+ DSE/);
-    assert.match(denseSource, /Package \.compass/);
-    assert.match(denseSource, /Inference \+ DSE/);
+    assert.match(moreSource, /Package \.compass/);
+    assert.match(moreSource, /Inference \+ DSE/);
 });
 
 test("CompassSidebar packages .compass for Inference + DSE", () => {

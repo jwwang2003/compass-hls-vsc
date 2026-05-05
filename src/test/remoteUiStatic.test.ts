@@ -45,18 +45,18 @@ test("MainSidebar wires remote inference UI actions to extension messages", () =
     assert.match(source, /endpoint/);
 });
 
-test("Remote config visibility follows DSE inference mode in flow and dense views", () => {
+test("Remote config visibility follows DSE inference mode in flow and more views", () => {
     const mainSource = readWebview("sveltePages/MainSidebar.svelte");
-    const denseSource = readWebview("components/DenseDashboard.svelte");
+    const moreSource = readWebview("components/MoreDashboard.svelte");
 
     assert.match(mainSource, /dseOptions\.inferenceMode\s*===\s*["']remote["']/);
-    assert.match(denseSource, /dseOptions\.inferenceMode\s*===\s*["']remote["']/);
+    assert.match(moreSource, /dseOptions\.inferenceMode\s*===\s*["']remote["']/);
     assert.doesNotMatch(mainSource, /hostMode\s*===\s*["']remote["'][\s\S]{0,160}<HostApiConfig/);
-    assert.doesNotMatch(denseSource, /hostMode\s*===\s*["']remote["'][\s\S]{0,160}<HostApiConfig/);
+    assert.doesNotMatch(moreSource, /hostMode\s*===\s*["']remote["'][\s\S]{0,160}<HostApiConfig/);
 });
 
-test("DenseDashboard receives and forwards the same remote inference controls", () => {
-    const source = readWebview("components/DenseDashboard.svelte");
+test("MoreDashboard receives and forwards the same remote inference controls", () => {
+    const source = readWebview("components/MoreDashboard.svelte");
 
     assert.match(source, /HostApiConfig/);
     assert.match(source, /remoteInferenceEndpoint/);

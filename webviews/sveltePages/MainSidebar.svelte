@@ -10,7 +10,7 @@
     vsCodeTextField,
   } from "@vscode/webview-ui-toolkit";
 
-  import DenseDashboard from "@/components/DenseDashboard.svelte";
+  import MoreDashboard from "@/components/MoreDashboard.svelte";
   import DseConfig from "@/components/DseConfig.svelte";
   import DseRunMonitor from "@/components/DseRunMonitor.svelte";
   import HostApiConfig from "@/components/HostApiConfig.svelte";
@@ -33,7 +33,7 @@
     type DseStatus,
   } from "@/modules/dseOptions";
 
-  type DisplayMode = "flow" | "dense";
+  type DisplayMode = "flow" | "more";
   type VivadoDiscoveryStatus = {
     installations: Array<{
       product: string;
@@ -85,7 +85,7 @@
 
   const displayOptions: RadioOption[] = [
     { label: "Flow", value: "flow" },
-    { label: "Dense", value: "dense" },
+    { label: "More", value: "more" },
   ];
   onMount(() => {
     provideVSCodeDesignSystem().register(
@@ -332,7 +332,7 @@
         onRunAll={runAll}
       />
     {:else}
-      <DenseDashboard
+      <MoreDashboard
         bind:projectName
         bind:projectVersion
         bind:projectRevision

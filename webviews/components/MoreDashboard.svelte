@@ -58,7 +58,7 @@
   }
 </script>
 
-<section class="dense">
+<section class="more-dashboard">
   <div class="field-grid">
     <div class="field">
       <span>Project</span>
@@ -173,7 +173,7 @@
 </section>
 
 <style>
-  .dense,
+  .more-dashboard,
   .section {
     display: flex;
     flex-direction: column;

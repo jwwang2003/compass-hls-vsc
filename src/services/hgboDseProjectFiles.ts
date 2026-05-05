@@ -6,10 +6,6 @@ const BUILD_FILE_NAMES = new Set([
     "cmakepresets.json",
     "cmakeuserpresets.json",
 ]);
-const RESERVED_SOURCE_FILE_NAMES = new Set([
-    "local_support.c",
-]);
-
 const SKIPPED_PROJECT_DIRECTORIES = new Set([
     ".compass",
     ".git",
@@ -33,10 +29,6 @@ export function shouldTraverseProjectDirectory(name: string): boolean {
     return !SKIPPED_PROJECT_DIRECTORIES.has(normalized) && !normalized.startsWith("cmake-build-");
 }
 
-export function getPackagedSourceFileName(name: string, selected: boolean, caseName: string): string {
-    if (RESERVED_SOURCE_FILE_NAMES.has(name.toLowerCase())) {
-        return name;
-    }
-
-    return selected ? `${caseName}.c` : name;
+export function getPackagedSourceFileName(name: string): string {
+    return name;
 }

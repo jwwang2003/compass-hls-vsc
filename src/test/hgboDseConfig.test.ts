@@ -75,6 +75,7 @@ test("builds HGBO-DSE CLI args for packaged Compass paths", () => {
             configPath: "/workspace/.compass/hgbo-package/config.yaml",
             paramsPath: "/workspace/.compass/hgbo-package/params.yaml",
             projectPath: "/workspace/.compass/hgbo-package/benchmark/custom/viterbi/viterbi",
+            sourceFile: "edge_detect.c",
             isolatedPath: "/workspace/.compass/runs/run-1",
         }
     );
@@ -117,6 +118,8 @@ test("builds HGBO-DSE CLI args for packaged Compass paths", () => {
         "/workspace/.compass/hgbo-package/params.yaml",
         "--project-path",
         "/workspace/.compass/hgbo-package/benchmark/custom/viterbi/viterbi",
+        "--source-file",
+        "edge_detect.c",
     ]);
 });
 
@@ -127,6 +130,7 @@ test("builds HGBO-DSE implementation verification CLI args for selected trials",
             configPath: "/workspace/.compass/runs/run-1/package/config.yaml",
             paramsPath: "/workspace/.compass/runs/run-1/package/params.yaml",
             projectPath: "/workspace/.compass/runs/run-1/package/benchmark/custom/bfs/bulk",
+            sourceFile: "edge_detect.c",
             isolatedPath: "/workspace/.compass/runs/run-1/impl-verification/verify-1",
             selectionPath: "/workspace/.compass/runs/run-1/impl-verification/verify-1/selected_trials.json",
             outputPath: "/workspace/.compass/runs/run-1/impl_verification.json",
@@ -163,6 +167,8 @@ test("builds HGBO-DSE implementation verification CLI args for selected trials",
         "/workspace/.compass/runs/run-1/package/params.yaml",
         "--project-path",
         "/workspace/.compass/runs/run-1/package/benchmark/custom/bfs/bulk",
+        "--source-file",
+        "edge_detect.c",
         "--selection-path",
         "/workspace/.compass/runs/run-1/impl-verification/verify-1/selected_trials.json",
         "--output-path",

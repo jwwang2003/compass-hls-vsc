@@ -1,0 +1,4 @@
+edge_detect
+edge_detect_vitis_prj/
+vitis_hls.log
+.Xil/

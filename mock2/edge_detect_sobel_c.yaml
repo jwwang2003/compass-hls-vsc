@@ -1,0 +1,40 @@
+top:
+    - edge_detect
+funcList:
+    -
+loopList:
+    group_pixels:
+        level:
+            - edge_detect/row_loop
+            - edge_detect/col_loop
+        unroll:
+            - edge_detect/row_loop
+            - edge_detect/col_loop
+        pipeline:
+            - edge_detect/col_loop
+        flatten:
+            -
+arrList:
+    -
+interList:
+    - edge_detect input
+    - edge_detect output
+dictOp:
+    int:
+        edge_detect/row_loop r:
+            - add
+        edge_detect/col_loop c:
+            - add
+        edge_detect/col_loop idx:
+            - add
+            - mul
+        edge_detect/col_loop gx:
+            - add
+        edge_detect/col_loop gy:
+            - add
+    float:
+        -
+    double:
+        -
+    half:
+        -

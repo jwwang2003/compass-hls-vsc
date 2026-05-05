@@ -29,11 +29,11 @@ test("HGBO-DSE packaging keeps C/C++ build inputs and skips generated folders", 
     assert.equal(shouldTraverseProjectDirectory("artifacts"), false);
 });
 
-test("HGBO-DSE packaging renames only the selected C source to the requested case name", () => {
-    assert.equal(getPackagedSourceFileName("bfs.c", true, "kernel"), "kernel.c");
-    assert.equal(getPackagedSourceFileName("bfs.h", false, "kernel"), "bfs.h");
+test("HGBO-DSE packaging preserves project source file names", () => {
+    assert.equal(getPackagedSourceFileName("edge_detect.c"), "edge_detect.c");
+    assert.equal(getPackagedSourceFileName("bfs.h"), "bfs.h");
 });
 
 test("HGBO-DSE packaging keeps MachSuite local_support.c under its expected name", () => {
-    assert.equal(getPackagedSourceFileName("local_support.c", true, "bfs"), "local_support.c");
+    assert.equal(getPackagedSourceFileName("local_support.c"), "local_support.c");
 });

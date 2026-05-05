@@ -32,6 +32,7 @@ export interface HgboDsePathOptions {
     configPath: string;
     paramsPath: string;
     projectPath: string;
+    sourceFile: string;
     isolatedPath: string;
 }
 
@@ -151,6 +152,8 @@ export function buildHgboDseArgs(options: DseOptions, paths: HgboDsePathOptions)
         paths.paramsPath,
         "--project-path",
         paths.projectPath,
+        "--source-file",
+        paths.sourceFile,
     ];
 }
 
@@ -185,6 +188,8 @@ export function buildHgboImplVerifyArgs(options: DseOptions, paths: HgboImplVeri
         paths.paramsPath,
         "--project-path",
         paths.projectPath,
+        "--source-file",
+        paths.sourceFile,
         "--selection-path",
         paths.selectionPath,
         "--output-path",

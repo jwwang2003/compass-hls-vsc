@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import * as path from "path";
 import * as vscode from "vscode";
+import * as yaml from "js-yaml";
 
 import type { DisplayFile } from "./yamlService";
 import {
@@ -80,6 +81,7 @@ export interface CompassDsePackage {
     paramsUri: vscode.Uri;
     projectUri: vscode.Uri;
     manifestUri: vscode.Uri;
+    sourceFile: string;
     files: string[];
 }
 
@@ -113,6 +115,7 @@ const LOG_FILE = "hgbo-dse.log";
 const TEXT_RESULT_PATTERN = /\.(txt|log|json|ya?ml|tcl|csv|md)$/i;
 const SVG_RESULT_PATTERN = /\.svg$/i;
 const SOURCE_SEARCH_EXCLUDES = "{**/node_modules/**,**/.git/**,**/.compass/**,**/dist/**,**/out/**,**/3rdParty/**,**/readme_assets/**}";
+export const C_FUNCTION_PATTERN = /\b[A-Za-z_][A-Za-z0-9_\s\*]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*\{/g;
 
 export function buildHgboDseEnvironment(
     baseEnv: NodeJS.ProcessEnv,
@@ -220,10 +223,11 @@ export async function prepareHgboDsePackage(
         throw new Error("Generate config.yaml and params.yaml before packaging .compass.");
     }
 
-    const sourceUri = await getSourceFileUri(workspaceFolder.uri);
+    const sourceUri = await getSourceFileUri(workspaceFolder.uri, configSourceUri);
     if (!sourceUri) {
         throw new Error("Open a .c file, or make sure the workspace contains a .c file.");
     }
+    const sourceFile = path.basename(sourceUri.fsPath);
 
     await resetDirectory(packageRootUri);
 
@@ -243,7 +247,7 @@ export async function prepareHgboDsePackage(
     await vscode.workspace.fs.createDirectory(projectUri);
 
     progress?.report({ increment: 35, message: "Copying HLS source inputs" });
-    await copySourceDirectory(sourceUri, projectUri, options.caseName);
+    await copySourceDirectory(sourceUri, projectUri);
 
     const manifestUri = vscode.Uri.joinPath(packageRootUri, MANIFEST_FILE);
     const manifest = {
@@ -254,6 +258,7 @@ export async function prepareHgboDsePackage(
             config: configUri.fsPath,
             params: paramsUri.fsPath,
             project: projectUri.fsPath,
+            sourceFile,
         },
     };
     await vscode.workspace.fs.writeFile(manifestUri, Buffer.from(JSON.stringify(manifest, null, 2), "utf8"));
@@ -267,6 +272,7 @@ export async function prepareHgboDsePackage(
         paramsUri,
         projectUri,
         manifestUri,
+        sourceFile,
         files,
     };
 }
@@ -300,6 +306,7 @@ export async function runHgboDse(
         configPath: runPackage.configUri.fsPath,
         paramsPath: runPackage.paramsUri.fsPath,
         projectPath: runPackage.projectUri.fsPath,
+        sourceFile: dsePackage.sourceFile,
         isolatedPath: runUri.fsPath,
     });
     const logChunks: string[] = [];
@@ -407,6 +414,7 @@ export async function runHgboImplVerification(
         configPath: vscode.Uri.joinPath(packageRootUri, "config.yaml").fsPath,
         paramsPath: vscode.Uri.joinPath(packageRootUri, "params.yaml").fsPath,
         projectPath: vscode.Uri.joinPath(packageRootUri, "benchmark", options.bench, options.caseName, options.ver).fsPath,
+        sourceFile: await readPackageSourceFile(packageRootUri),
         isolatedPath: verificationUri.fsPath,
         selectionPath: selectionUri.fsPath,
         outputPath: outputUri.fsPath,
@@ -666,6 +674,23 @@ async function writeRunLog(logUri: vscode.Uri, chunks: string[]) {
     await vscode.workspace.fs.writeFile(logUri, Buffer.from(chunks.join(""), "utf8"));
 }
 
+async function readPackageSourceFile(packageRootUri: vscode.Uri): Promise<string> {
+    try {
+        const manifestUri = vscode.Uri.joinPath(packageRootUri, MANIFEST_FILE);
+        const bytes = await vscode.workspace.fs.readFile(manifestUri);
+        const parsed = JSON.parse(Buffer.from(bytes).toString("utf8")) as {
+            paths?: { sourceFile?: unknown };
+        };
+        if (typeof parsed.paths?.sourceFile === "string" && parsed.paths.sourceFile.endsWith(".c")) {
+            return parsed.paths.sourceFile;
+        }
+    } catch {
+        return "bfs.c";
+    }
+
+    return "bfs.c";
+}
+
 async function findFirstExisting(candidates: vscode.Uri[]): Promise<vscode.Uri | undefined> {
     for (const candidate of candidates) {
         if (await pathExists(candidate)) {
@@ -676,30 +701,40 @@ async function findFirstExisting(candidates: vscode.Uri[]): Promise<vscode.Uri |
     return undefined;
 }
 
-async function getSourceFileUri(workspaceUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+async function getSourceFileUri(workspaceUri: vscode.Uri, configUri?: vscode.Uri): Promise<vscode.Uri | undefined> {
+    const topFunction = configUri ? await readTopFunctionName(configUri) : undefined;
+    const matches = await vscode.workspace.findFiles("**/*.c", SOURCE_SEARCH_EXCLUDES, 200);
+    const workspaceMatches = matches.filter(match => isWithinWorkspace(match, workspaceUri));
+
     const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
     if (
         activeDocumentUri?.scheme === "file" &&
         activeDocumentUri.fsPath.endsWith(".c") &&
-        isWithinWorkspace(activeDocumentUri, workspaceUri)
+        isWithinWorkspace(activeDocumentUri, workspaceUri) &&
+        (!topFunction || await fileDefinesFunction(activeDocumentUri, topFunction))
     ) {
         return activeDocumentUri;
     }
 
-    const matches = await vscode.workspace.findFiles("**/*.c", SOURCE_SEARCH_EXCLUDES, 1);
-    return matches.find(match => isWithinWorkspace(match, workspaceUri));
+    if (topFunction) {
+        for (const match of workspaceMatches) {
+            if (await fileDefinesFunction(match, topFunction)) {
+                return match;
+            }
+        }
+    }
+
+    return workspaceMatches[0];
 }
 
-async function copySourceDirectory(sourceUri: vscode.Uri, projectUri: vscode.Uri, caseName: string) {
+async function copySourceDirectory(sourceUri: vscode.Uri, projectUri: vscode.Uri) {
     const sourceDirectory = vscode.Uri.file(path.dirname(sourceUri.fsPath));
-    await copyProjectTree(sourceDirectory, projectUri, sourceUri.fsPath, caseName);
+    await copyProjectTree(sourceDirectory, projectUri);
 }
 
 async function copyProjectTree(
     sourceDirectory: vscode.Uri,
-    destinationDirectory: vscode.Uri,
-    selectedSourcePath: string,
-    caseName: string
+    destinationDirectory: vscode.Uri
 ) {
     const entries = await vscode.workspace.fs.readDirectory(sourceDirectory);
 
@@ -710,9 +745,7 @@ async function copyProjectTree(
             if (shouldTraverseProjectDirectory(name)) {
                 await copyProjectTree(
                     sourceFileUri,
-                    vscode.Uri.joinPath(destinationDirectory, name),
-                    selectedSourcePath,
-                    caseName
+                    vscode.Uri.joinPath(destinationDirectory, name)
                 );
             }
             continue;
@@ -722,9 +755,42 @@ async function copyProjectTree(
             continue;
         }
 
-        const destinationName = getPackagedSourceFileName(name, sourceFileUri.fsPath === selectedSourcePath, caseName);
+        const destinationName = getPackagedSourceFileName(name);
         await copyFile(sourceFileUri, vscode.Uri.joinPath(destinationDirectory, destinationName));
     }
+}
+
+async function readTopFunctionName(configUri: vscode.Uri): Promise<string | undefined> {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(configUri);
+        const parsed = yaml.load(Buffer.from(bytes).toString("utf8")) as { top?: unknown } | undefined;
+        if (Array.isArray(parsed?.top) && typeof parsed.top[0] === "string" && parsed.top[0].trim()) {
+            return parsed.top[0].trim();
+        }
+    } catch {
+        return undefined;
+    }
+
+    return undefined;
+}
+
+async function fileDefinesFunction(uri: vscode.Uri, functionName: string): Promise<boolean> {
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const source = Buffer.from(bytes).toString("utf8");
+    return sourceDefinesFunction(source, functionName);
+}
+
+export function sourceDefinesFunction(sourceCode: string, functionName: string): boolean {
+    const source = sourceCode.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+    C_FUNCTION_PATTERN.lastIndex = 0;
+
+    for (let match = C_FUNCTION_PATTERN.exec(source); match; match = C_FUNCTION_PATTERN.exec(source)) {
+        if (match[1] === functionName) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 async function copyFile(sourceUri: vscode.Uri, destinationUri: vscode.Uri) {

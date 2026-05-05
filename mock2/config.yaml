@@ -1,0 +1,36 @@
+top:
+    - edge_detect
+funcList: []
+loopList:
+    group_edge_detect_row_loop:
+        level:
+            - edge_detect/row_loop
+        unroll:
+            - edge_detect/row_loop
+        pipeline:
+            - edge_detect/row_loop
+        flatten:
+            - edge_detect/row_loop
+    group_edge_detect_col_loop:
+        level:
+            - edge_detect/col_loop
+        unroll:
+            - edge_detect/col_loop
+        pipeline:
+            - edge_detect/col_loop
+        flatten:
+            - edge_detect/col_loop
+arrList: []
+interList:
+    - run_benchmark vargs
+    - edge_detect input
+    - edge_detect output
+dictOp:
+    int:
+        edge_detect/col_loop c:
+            - add
+        edge_detect/row_loop r:
+            - add
+    float: []
+    double: []
+    half: []

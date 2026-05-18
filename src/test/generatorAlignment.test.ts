@@ -99,6 +99,35 @@ test("generated config matches the reference YAML schema for nested BFS loops", 
     });
 });
 
+test("generated config uses the design kernel instead of a testbench main", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "compass-generator-"));
+    const sourcePath = path.join(directory, "kernel.c");
+    fs.writeFileSync(sourcePath, `
+static int helper(int value) {
+  return value + 1;
+}
+
+void kernel(int input[16], int output[16]) {
+  loop_i: for (int i = 0; i < 16; ++i) {
+    output[i] = helper(input[i]);
+  }
+}
+
+int main(void) {
+  int input[16];
+  int output[16];
+  kernel(input, output);
+  return output[0];
+}
+`, "utf8");
+
+    const config = generateConfigFromCFile(sourcePath, false);
+
+    assert.deepEqual(config.top, ["kernel"]);
+    assert.deepEqual(config.interList, ["kernel input", "kernel output"]);
+    assert.deepEqual(Object.keys(config.loopList), ["group1"]);
+});
+
 test("generated YAML text keeps the reference list formatting without anchors", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "compass-generator-"));
     const sourcePath = path.join(directory, "bfs.c");

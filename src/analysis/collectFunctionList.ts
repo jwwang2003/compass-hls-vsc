@@ -1,55 +1,105 @@
-import { getParser } from './getParser';
+import Parser from "tree-sitter";
+
+import { getParser } from "./getParser";
+import { selectTopFunction } from "./topFunctionDetection";
 
 /**
- * 提取顶层父函数中被调用的本地函数名
- * @param code C 源码字符串
- * @returns 被调用的本地函数名数组
+ * Collect local function calls made directly inside the selected top function.
  */
-export function collectFunctionList(code: string): string[] {
+export function collectFunctionList(code: string, topFunctionName = selectTopFunction(code)): string[] {
+    if (!topFunctionName) {
+        return [];
+    }
+
     const parser = getParser();
     const tree = parser.parse(code);
+    const functions = collectFunctionNodes(tree.rootNode, code);
+    const topNode = functions.get(topFunctionName);
 
-    const functionNames: string[] = [];
-    const calledFunctionNames: string[] = [];
-    const topFunctionNames: string[] = [];
-    const localFunctionCalls: string[] = [];
+    if (!topNode) {
+        return [];
+    }
 
-    // 1. 找出所有函数名
-    tree.rootNode.children.forEach((node: any) => {
-        if (node.type === 'function_definition') {
-            const declarator = node.namedChildren.find((child: any) => child.type === 'function_declarator');
-            const idNode = declarator?.namedChildren.find((child: any) => child.type === 'identifier');
-            if (idNode) {functionNames.push(idNode.text);}
+    const localCalls = new Set<string>();
+    const localFunctionNames = new Set(functions.keys());
+
+    for (const callNode of topNode.descendantsOfType("call_expression")) {
+        const functionNode = getField(callNode, "function") ?? callNode.namedChildren[0];
+        if (!functionNode || functionNode.type !== "identifier") {
+            continue;
         }
-    });
 
-    // 2. 找出所有被调用的函数名
-    tree.rootNode.descendantsOfType('call_expression').forEach((callNode: any) => {
-        const idNode = callNode.namedChildren[0];
-        if (idNode) {calledFunctionNames.push(idNode.text);}
-    });
-
-    // 3. 找出顶层父函数
-    functionNames.forEach(name => {
-        if (!calledFunctionNames.includes(name)) {topFunctionNames.push(name);}
-    });
-
-    // 4. 查找顶层父函数中被调用的本地函数
-    tree.rootNode.children.forEach((node: any) => {
-        if (node.type === 'function_definition') {
-            const declarator = node.namedChildren.find((child: any) => child.type === 'function_declarator');
-            const idNode = declarator?.namedChildren.find((child: any) => child.type === 'identifier');
-            if (idNode && topFunctionNames.includes(idNode.text)) {
-                node.descendantsOfType('call_expression').forEach((callNode: any) => {
-                    const calledFunc = callNode.namedChildren[0];
-                    if (calledFunc && functionNames.includes(calledFunc.text)) {
-                        localFunctionCalls.push(calledFunc.text);
-                    }
-                });
-            }
+        const calledFunction = nodeText(functionNode, code);
+        if (localFunctionNames.has(calledFunction) && calledFunction !== topFunctionName) {
+            localCalls.add(calledFunction);
         }
-    });
+    }
 
-    // 去重并排序
-    return Array.from(new Set(localFunctionCalls)).sort();
+    return [...localCalls].sort();
+}
+
+function collectFunctionNodes(rootNode: Parser.SyntaxNode, sourceCode: string): Map<string, Parser.SyntaxNode> {
+    const functions = new Map<string, Parser.SyntaxNode>();
+
+    for (const node of rootNode.namedChildren) {
+        if (node.type !== "function_definition") {
+            continue;
+        }
+
+        const name = getFunctionName(node, sourceCode);
+        if (name) {
+            functions.set(name, node);
+        }
+    }
+
+    return functions;
+}
+
+function getFunctionName(node: Parser.SyntaxNode, sourceCode: string): string | undefined {
+    const declarator = getField(node, "declarator")
+        ?? node.namedChildren.find(child => child.type === "function_declarator");
+    const identifier = firstDescendantOfType(declarator, "identifier");
+    return identifier ? nodeText(identifier, sourceCode) : undefined;
+}
+
+function getField(node: Parser.SyntaxNode | null | undefined, name: string): Parser.SyntaxNode | null {
+    if (!node) {
+        return null;
+    }
+
+    const field = typeof (node as any).childForFieldName === "function"
+        ? (node as any).childForFieldName(name)
+        : null;
+    if (field) {
+        return field;
+    }
+
+    const nodeField = (node as any)[`${name}Node`];
+    return nodeField && typeof nodeField === "object" ? nodeField : null;
+}
+
+function firstDescendantOfType(
+    node: Parser.SyntaxNode | null | undefined,
+    type: string
+): Parser.SyntaxNode | null {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === type) {
+        return node;
+    }
+
+    for (const child of node.namedChildren) {
+        const match = firstDescendantOfType(child, type);
+        if (match) {
+            return match;
+        }
+    }
+
+    return null;
+}
+
+function nodeText(node: Parser.SyntaxNode, sourceCode: string): string {
+    return sourceCode.slice(node.startIndex, node.endIndex);
 }

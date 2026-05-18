@@ -5,10 +5,8 @@ import { collectFunctionList } from './collectFunctionList';
 import { findTopFunctions } from './findTopFunctions';
 import { findArrayList } from './findArrayList';
 import { getParser } from './getParser';
-import { generateCallGraphImage } from './generateCallGraphImage';
 import { parseHeaderMacros } from './parseHeaderMacros';
 import { extractLoops } from './extractLoops';
-import { extractFunctionCalls } from './extractFunctionCalls';
 import { generateDictOp } from './generateDictOp';
 import { collectAssignments } from './collectAssignments';
 import { collectVariableDeclarations } from './collectVariableDeclarations';
@@ -179,17 +177,16 @@ function replaceEmptyArrayWithPlaceholder(container: Record<string, any>, key: s
  */
 function generateConfigYaml(
     topFunction: string,
-    functionCalls: string[],
     loops: any[],
     variables: Record<string, string>,
     assignments: [string, string, string | null][],
     sourceCode: string,
     mainFuncNode: Parser.SyntaxNode | null
 ) {
-    functionCalls = collectFunctionList(sourceCode);
     const topFunctionName = topFunction;
+    const functionCalls = collectFunctionList(sourceCode, topFunctionName);
     const topFunctionParameters = collectTopInterfaceParameters(mainFuncNode, topFunctionName, sourceCode);
-    const arrayList = findArrayList(sourceCode);
+    const arrayList = findArrayList(sourceCode, topFunctionName);
     const config: any = {
         top: [topFunctionName],
         funcList: functionCalls,
@@ -236,10 +233,9 @@ export function generateConfigFromCFile(cFile: string, drawGraph = false): any {
     if (mainFuncNode) {
         loops = extractLoops(mainFuncNode, sourceCode);
     }
-    const functionCalls = extractFunctionCalls(rootNode, sourceCode, filePrefix);
-    const variables = collectVariableDeclarations(mainFuncNode!, sourceCode, macroMap);
-    const assignments = collectAssignments(mainFuncNode!, sourceCode, loops);
-    return generateConfigYaml(topFunction, functionCalls, loops, variables, assignments, sourceCode, mainFuncNode);
+    const variables = mainFuncNode ? collectVariableDeclarations(mainFuncNode, sourceCode, macroMap) : {};
+    const assignments = mainFuncNode ? collectAssignments(mainFuncNode, sourceCode, loops) : [];
+    return generateConfigYaml(topFunction, loops, variables, assignments, sourceCode, mainFuncNode);
 }
 
 /**

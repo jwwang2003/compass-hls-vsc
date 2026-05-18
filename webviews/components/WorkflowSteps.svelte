@@ -7,6 +7,7 @@
   export let onRunInference: () => void;
   export let onShowResults: () => void;
   export let onRunAll: () => void;
+  export let onResetProject: () => void;
 
   function onButtonKeydown(event: KeyboardEvent, handler: () => void) {
     if (event.key === "Enter" || event.key === " ") {
@@ -19,15 +20,26 @@
 <section class="workflow">
   <div class="section-heading">
     <h2>Flow</h2>
-    <vscode-button
-      appearance="secondary"
-      role="button"
-      tabindex="0"
-      on:click={onRunAll}
-      on:keydown={(event) => onButtonKeydown(event, onRunAll)}
-    >
-      Run All
-    </vscode-button>
+    <div class="workflow-actions">
+      <vscode-button
+        appearance="secondary"
+        role="button"
+        tabindex="0"
+        on:click={onResetProject}
+        on:keydown={(event) => onButtonKeydown(event, onResetProject)}
+      >
+        Reset Project
+      </vscode-button>
+      <vscode-button
+        appearance="secondary"
+        role="button"
+        tabindex="0"
+        on:click={onRunAll}
+        on:keydown={(event) => onButtonKeydown(event, onRunAll)}
+      >
+        Run All
+      </vscode-button>
+    </div>
   </div>
 
   <div class="steps">
@@ -123,6 +135,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+  }
+
+  .workflow-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.375rem;
   }
 
   h2 {

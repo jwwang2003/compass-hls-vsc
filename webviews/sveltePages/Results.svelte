@@ -110,6 +110,20 @@
     rawPpa?: unknown;
   }
 
+  interface ArtifactContentPayload {
+    requestId: number;
+    runId: string;
+    artifactId: string;
+    artifact?: {
+      id: string;
+      name: string;
+      kind: "text" | "svg";
+      content: string;
+      uri?: string;
+    };
+    error?: string;
+  }
+
   interface ResultsPayload {
     runId: string;
     runs: RunSummary[];
@@ -124,7 +138,8 @@
   }
 
   type IncomingMessage =
-    | (VSCodeMessage<ResultsPayload> & { type: "render" });
+    | (VSCodeMessage<ResultsPayload> & { type: "render" })
+    | (VSCodeMessage<ArtifactContentPayload> & { type: "artifactContent" });
 
   type IconName = "zoomOut" | "zoomIn" | "reset" | "fullscreen" | "close";
 
@@ -256,6 +271,11 @@
   let fullscreenGraphName = "";
   let fullscreenPlotOpen = false;
   let selectedImplTrials: Set<number> = new Set();
+  let artifactRequestSeq = 0;
+  let loadingArtifacts: Set<string> = new Set();
+  let loadedArtifacts: Set<string> = new Set();
+  let artifactRequests: Record<string, number> = {};
+  let artifactErrors: Record<string, string> = {};
 
   $: displayedFileGroups = fileGroups.length > 0
     ? fileGroups
@@ -301,6 +321,20 @@
         fullscreenGraphName = "";
         fullscreenPlotOpen = false;
         selectedImplTrials = new Set();
+        loadingArtifacts = new Set();
+        loadedArtifacts = new Set(
+          [
+            ...msg.value.logs.map(file => file.name),
+            ...((msg.value.fileGroups ?? []).flatMap(group => group.files.map(file => file.name))),
+            ...msg.value.svgs.filter(svg => svg.content).map(svg => svg.name),
+          ].filter(Boolean)
+        );
+        artifactErrors = {};
+        artifactRequests = {};
+        artifactRequestSeq += 1;
+        break;
+      case "artifactContent":
+        handleArtifactContent(msg.value);
         break;
     }
   }
@@ -519,6 +553,85 @@
         trials: [...selectedImplTrials].sort((a, b) => a - b),
       },
     });
+  }
+
+  function requestArtifactContent(artifactId: string) {
+    if (!selectedRunId || loadedArtifacts.has(artifactId) || loadingArtifacts.has(artifactId)) {
+      return;
+    }
+
+    const requestId = ++artifactRequestSeq;
+    loadingArtifacts = new Set([...loadingArtifacts, artifactId]);
+    artifactRequests = {
+      ...artifactRequests,
+      [artifactId]: requestId,
+    };
+    artifactErrors = {
+      ...artifactErrors,
+      [artifactId]: "",
+    };
+    vscode_comm.postMessage({
+      type: "getArtifactContent",
+      value: {
+        requestId,
+        runId: selectedRunId,
+        artifactId,
+      },
+    });
+  }
+
+  function handleArtifactContent(value: ArtifactContentPayload) {
+    if (value.runId !== selectedRunId || artifactRequests[value.artifactId] !== value.requestId) {
+      return;
+    }
+
+    const nextRequests = { ...artifactRequests };
+    delete nextRequests[value.artifactId];
+    artifactRequests = nextRequests;
+
+    const nextLoading = new Set(loadingArtifacts);
+    nextLoading.delete(value.artifactId);
+    loadingArtifacts = nextLoading;
+
+    if (!value.artifact) {
+      artifactErrors = {
+        ...artifactErrors,
+        [value.artifactId]: value.error ?? "Artifact not found.",
+      };
+      return;
+    }
+
+    loadedArtifacts = new Set([...loadedArtifacts, value.artifactId]);
+    artifactErrors = {
+      ...artifactErrors,
+      [value.artifactId]: "",
+    };
+
+    if (value.artifact.kind === "svg") {
+      svgs = svgs.map(svg => svg.name === value.artifactId
+        ? { ...svg, content: value.artifact?.content ?? "", uri: value.artifact?.uri ?? "" }
+        : svg
+      );
+      return;
+    }
+
+    logs = logs.map(file => file.name === value.artifactId
+      ? { ...file, content: value.artifact?.content ?? "" }
+      : file
+    );
+    fileGroups = fileGroups.map(group => ({
+      ...group,
+      files: group.files.map(file => file.name === value.artifactId
+        ? { ...file, content: value.artifact?.content ?? "" }
+        : file
+      ),
+    }));
+  }
+
+  function handleFileToggle(file: DisplayFile, event: Event) {
+    if (event.currentTarget instanceof HTMLDetailsElement && event.currentTarget.open) {
+      requestArtifactContent(file.name);
+    }
   }
 
   function startPlotDrag(event: PointerEvent) {
@@ -770,6 +883,7 @@
   }
 
   function openFullscreenGraph(graph: DseGraphArtifact) {
+    requestArtifactContent(graph.name);
     fullscreenGraphName = graph.name;
     void syncSelectedGraphElements(selectedPoint?.trial);
   }
@@ -1396,6 +1510,7 @@
                 on:pointermove={dragGraph}
                 on:pointerup={endGraphDrag}
                 on:pointercancel={endGraphDrag}
+                on:pointerenter={() => requestArtifactContent(svg.name)}
                 on:wheel={(event) => zoomGraph(svg, event)}
                 on:click={(event) => handleGraphClick(svg, event)}
                 on:dblclick={(event) => handleGraphDoubleClick(svg, event)}
@@ -1509,6 +1624,7 @@
         on:pointermove={dragGraph}
         on:pointerup={endGraphDrag}
         on:pointercancel={endGraphDrag}
+        on:pointerenter={() => requestArtifactContent(fullscreenGraph.name)}
         on:wheel={(event) => zoomGraph(fullscreenGraph, event)}
         on:click={(event) => handleGraphClick(fullscreenGraph, event)}
         on:dblclick={(event) => handleGraphDoubleClick(fullscreenGraph, event)}
@@ -1662,9 +1778,15 @@
             </summary>
             <div class="project-files">
               {#each group.files as log}
-                <details class="file-detail" open={log.name === "hgbo-dse.log"}>
+                <details class="file-detail" on:toggle={(event) => handleFileToggle(log, event)}>
                   <summary>{log.name}</summary>
-                  <pre>{log.content}</pre>
+                  {#if log.content}
+                    <pre>{log.content}</pre>
+                  {:else if artifactErrors[log.name]}
+                    <pre>{artifactErrors[log.name]}</pre>
+                  {:else}
+                    <pre>{loadingArtifacts.has(log.name) ? "Loading artifact..." : "Open to load artifact content."}</pre>
+                  {/if}
                 </details>
               {/each}
             </div>

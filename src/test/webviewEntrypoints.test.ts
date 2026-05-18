@@ -38,6 +38,7 @@ test("MainSidebar preserves Compass workflow command messages", () => {
         "runInference",
         "showInference",
         "runAll",
+        "resetProject",
         "toggleAutoDiscover",
         "selectVivadoSettings64Path",
     ]) {
@@ -84,6 +85,25 @@ test("MainSidebar renders HGBO-DSE process status", () => {
     assert.match(source, /type:\s*["']dseStatus["']/);
     assert.match(source, /type:\s*["']dseLog["']/);
     assert.match(source, /DseRunMonitor/);
+});
+
+test("MainSidebar exposes a project reset action for generated artifacts", () => {
+    const mainSource = readFileSync(path.join(process.cwd(), "webviews", "sveltePages", "MainSidebar.svelte"), "utf8");
+    const workflowSource = readFileSync(path.join(process.cwd(), "webviews", "components", "WorkflowSteps.svelte"), "utf8");
+    const moreSource = readFileSync(path.join(process.cwd(), "webviews", "components", "MoreDashboard.svelte"), "utf8");
+    const sidebarSource = readFileSync(path.join(process.cwd(), "src", "providers", "CompassSidebar.ts"), "utf8");
+
+    assert.match(mainSource, /function\s+resetProject\(\)/);
+    assert.match(mainSource, /type:\s*["']resetProject["']/);
+    assert.match(mainSource, /case\s+["']projectReset["']/);
+    assert.match(mainSource, /dseLogs\s*=\s*\[\]/);
+    assert.match(workflowSource, /Reset Project/);
+    assert.match(workflowSource, /onResetProject/);
+    assert.match(moreSource, /Reset Project/);
+    assert.match(moreSource, /onResetProject/);
+    assert.match(sidebarSource, /case\s+["']resetProject["']/);
+    assert.match(sidebarSource, /handleResetProject/);
+    assert.match(sidebarSource, /resetCompassProjectArtifacts/);
 });
 
 test("MainSidebar accepts and renders Vivado discovery status", () => {
@@ -385,14 +405,15 @@ test("Result panel discovers runs before lazily loading selected run details", (
     const panelSource = readFileSync(path.join(process.cwd(), "src", "providers", "ResultPanel.ts"), "utf8");
 
     assert.match(sidebarSource, /listHgboRuns/);
-    assert.match(sidebarSource, /readHgboRunDetails/);
+    assert.match(sidebarSource, /readHgboRunOverview/);
     assert.match(sidebarSource, /resultsLoadRequestId/);
     assert.ok(
         sidebarSource.indexOf("const runs = await listHgboRuns") <
             sidebarSource.indexOf("await this.loadRunDetails"),
         "run list should load before selected run details"
     );
-    assert.match(runnerSource, /export async function readHgboRunDetails/);
+    assert.match(runnerSource, /export async function readHgboRunOverview/);
+    assert.match(runnerSource, /export async function readHgboRunArtifact/);
     assert.doesNotMatch(runnerSource, /const runs = await listHgboRuns\(workspaceUri\);\s*if \(runs\.length === 0\)/);
     assert.match(panelSource, /renderRunList/);
 });

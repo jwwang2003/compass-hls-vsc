@@ -2,8 +2,7 @@ import * as vscode from "vscode";
 
 import { TdmConfigService } from "../tdmConfigService";
 import { isSelectedTopFunctionRef } from "../tdmConfigModel";
-import { discoverDictOpIntHintsFromRoot } from "../tdmDictOpHintCore";
-import { getCachedTree } from "../webTreeSitter";
+import { getTdmAnalysisSnapshot } from "../tdmAnalysis";
 import { DebouncedAction } from "../../utilities/debounce";
 
 export class TdmDictOpDecorationProvider implements vscode.Disposable {
@@ -47,8 +46,8 @@ export class TdmDictOpDecorationProvider implements vscode.Disposable {
         }
 
         const documentVersion = editor.document.version;
-        const tree = getCachedTree(editor.document);
-        if (!tree) {
+        const snapshot = getTdmAnalysisSnapshot(editor.document);
+        if (!snapshot.hasTree) {
             editor.setDecorations(this.decorationType, []);
             return;
         }
@@ -58,7 +57,7 @@ export class TdmDictOpDecorationProvider implements vscode.Disposable {
             return;
         }
 
-        const ranges = discoverDictOpIntHintsFromRoot(tree.rootNode)
+        const ranges = snapshot.dictOpHints
             .filter(hint => isSelectedTopFunctionRef(config, hint.configKey))
             .map(hint => new vscode.Range(
                 new vscode.Position(hint.range.start.row, hint.range.start.column),

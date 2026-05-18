@@ -19,6 +19,13 @@ import {
     shouldTraverseProjectDirectory,
 } from "./hgboDseProjectFiles";
 import {
+    groupRunArtifactsByProject,
+    normalizeRunArtifactId,
+    type RunArtifactGroup,
+    type RunArtifactKind,
+    type RunArtifactMetadata,
+} from "./hgboDseArtifacts";
+import {
     attachDseVerificationToManifest,
     attachDseVerificationToPlot,
     buildDseVerificationComparisons,
@@ -73,6 +80,26 @@ export interface HgboRunResultsPayload {
     verification: DseVerificationComparison[];
     loading?: boolean;
     message?: string;
+}
+
+export interface HgboRunOverviewPayload {
+    runId: string;
+    runs: HgboRunSummary[];
+    artifactGroups: RunArtifactGroup[];
+    graphs: RunArtifactMetadata[];
+    plot: DsePlotData;
+    trialManifest: DseTrialManifestEntry[];
+    verification: DseVerificationComparison[];
+    loading?: boolean;
+    message?: string;
+}
+
+export interface HgboRunArtifactContent {
+    id: string;
+    name: string;
+    kind: RunArtifactKind;
+    content: string;
+    uri?: string;
 }
 
 export interface CompassDsePackage {
@@ -517,6 +544,47 @@ export async function readHgboRunResults(
     return readHgboRunDetails(workspaceUri, selectedRunId, availableRuns);
 }
 
+export async function readHgboRunOverview(
+    workspaceUri: vscode.Uri,
+    requestedRunId?: string
+): Promise<HgboRunOverviewPayload | undefined> {
+    const availableRuns = await listHgboRuns(workspaceUri);
+    if (availableRuns.length === 0) {
+        return undefined;
+    }
+
+    const selectedRunId = availableRuns.some(run => run.id === requestedRunId)
+        ? requestedRunId as string
+        : availableRuns.find(run => run.isLatest)?.id ?? availableRuns[0].id;
+
+    return readHgboRunOverviewDetails(workspaceUri, selectedRunId, availableRuns);
+}
+
+export async function readHgboRunArtifactIndex(
+    workspaceUri: vscode.Uri,
+    runId: string
+): Promise<RunArtifactGroup[]> {
+    const runUri = getHgboRunUri(workspaceUri, runId);
+    if (!await pathExists(runUri)) {
+        return [];
+    }
+
+    return groupRunArtifactsByProject(await readResultFileIndex(runUri, ""));
+}
+
+export async function readHgboRunArtifact(
+    workspaceUri: vscode.Uri,
+    runId: string,
+    artifactId: string
+): Promise<HgboRunArtifactContent | undefined> {
+    const runUri = getHgboRunUri(workspaceUri, runId);
+    if (!await pathExists(runUri)) {
+        return undefined;
+    }
+
+    return readRunArtifactContent(runUri, artifactId);
+}
+
 export async function readHgboRunDetails(
     workspaceUri: vscode.Uri,
     runId: string,
@@ -549,6 +617,37 @@ export async function readHgboRunDetails(
     };
 }
 
+async function readHgboRunOverviewDetails(
+    workspaceUri: vscode.Uri,
+    runId: string,
+    runs: HgboRunSummary[] = []
+): Promise<HgboRunOverviewPayload | undefined> {
+    const runUri = getHgboRunUri(workspaceUri, runId);
+    if (!await pathExists(runUri)) {
+        return undefined;
+    }
+
+    const artifacts = await readResultFileIndex(runUri, "");
+    const dseLogArtifact = artifacts.find(artifact => artifact.name === LOG_FILE)
+        ?? artifacts.find(artifact => artifact.kind === "text" && artifact.name.endsWith(".log"));
+    const dseLog = dseLogArtifact
+        ? (await readRunArtifactContent(runUri, dseLogArtifact.id))?.content ?? ""
+        : "";
+    const trialManifest = buildTrialManifest(dseLog, []);
+    const verification = await readImplVerificationResultsFromArtifacts(runUri, artifacts, trialManifest);
+    const plot = attachDseVerificationToPlot(buildDsePlotData(parseHgboTrialPoints(dseLog)), verification);
+
+    return {
+        runId,
+        runs,
+        artifactGroups: groupRunArtifactsByProject(artifacts),
+        graphs: artifacts.filter(artifact => artifact.kind === "svg"),
+        plot,
+        trialManifest: attachDseVerificationToManifest(trialManifest, verification),
+        verification,
+    };
+}
+
 function readImplVerificationResults(
     files: DisplayFile[],
     trialManifest: DseTrialManifestEntry[]
@@ -561,6 +660,26 @@ function readImplVerificationResults(
 
     try {
         const parsed = JSON.parse(verificationFile.content) as { results?: DseVerificationActual[] };
+        return buildDseVerificationComparisons(trialManifest, parsed.results ?? []);
+    } catch {
+        return [];
+    }
+}
+
+async function readImplVerificationResultsFromArtifacts(
+    runUri: vscode.Uri,
+    artifacts: RunArtifactMetadata[],
+    trialManifest: DseTrialManifestEntry[]
+): Promise<DseVerificationComparison[]> {
+    const verificationArtifact = artifacts.find(artifact => artifact.name === "impl_verification.json")
+        ?? artifacts.find(artifact => artifact.name.endsWith("/impl_verification.json"));
+    if (!verificationArtifact) {
+        return [];
+    }
+
+    try {
+        const content = await readRunArtifactContent(runUri, verificationArtifact.id);
+        const parsed = JSON.parse(content?.content ?? "{}") as { results?: DseVerificationActual[] };
         return buildDseVerificationComparisons(trialManifest, parsed.results ?? []);
     } catch {
         return [];
@@ -899,6 +1018,92 @@ function sanitizeSvgContent(svgContent: string): string {
     return svgContent
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
         .replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi, "");
+}
+
+async function readResultFileIndex(directory: vscode.Uri, prefix: string): Promise<RunArtifactMetadata[]> {
+    let entries: [string, vscode.FileType][];
+    try {
+        entries = await vscode.workspace.fs.readDirectory(directory);
+    } catch {
+        return [];
+    }
+
+    const artifacts: RunArtifactMetadata[] = [];
+    for (const [name, type] of entries) {
+        const childUri = vscode.Uri.joinPath(directory, name);
+        const relativePath = prefix ? path.posix.join(prefix, name) : name;
+
+        if ((type & vscode.FileType.Directory) !== 0) {
+            artifacts.push(...await readResultFileIndex(childUri, relativePath));
+            continue;
+        }
+
+        if ((type & vscode.FileType.File) === 0) {
+            continue;
+        }
+
+        const kind = getResultArtifactKind(name);
+        if (!kind) {
+            continue;
+        }
+
+        const stat = await vscode.workspace.fs.stat(childUri);
+        artifacts.push({
+            id: relativePath,
+            name: relativePath,
+            kind,
+            size: stat.size,
+        });
+    }
+
+    return artifacts.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function readRunArtifactContent(
+    runUri: vscode.Uri,
+    artifactId: string
+): Promise<HgboRunArtifactContent | undefined> {
+    const normalizedId = normalizeRunArtifactId(artifactId);
+    if (!normalizedId) {
+        return undefined;
+    }
+
+    const artifactUri = vscode.Uri.joinPath(runUri, ...normalizedId.split("/"));
+    let stat: vscode.FileStat;
+    try {
+        stat = await vscode.workspace.fs.stat(artifactUri);
+    } catch {
+        return undefined;
+    }
+
+    if ((stat.type & vscode.FileType.File) === 0) {
+        return undefined;
+    }
+
+    const kind = getResultArtifactKind(normalizedId);
+    if (!kind) {
+        return undefined;
+    }
+
+    const bytes = await vscode.workspace.fs.readFile(artifactUri);
+    const content = Buffer.from(bytes).toString("utf8");
+    return {
+        id: normalizedId,
+        name: normalizedId,
+        kind,
+        content: kind === "svg" ? sanitizeSvgContent(content) : content,
+        uri: kind === "svg" ? `data:image/svg+xml;base64,${Buffer.from(bytes).toString("base64")}` : undefined,
+    };
+}
+
+function getResultArtifactKind(name: string): RunArtifactKind | undefined {
+    if (TEXT_RESULT_PATTERN.test(name)) {
+        return "text";
+    }
+    if (SVG_RESULT_PATTERN.test(name)) {
+        return "svg";
+    }
+    return undefined;
 }
 
 async function readResultFiles(directory: vscode.Uri, prefix: string): Promise<DisplayFile[]> {

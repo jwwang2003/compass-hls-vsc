@@ -43,6 +43,7 @@
   export let onPackageUpload: () => void;
   export let onRunInference: () => void;
   export let onShowResults: () => void;
+  export let onResetProject: () => void;
   export let onToggleAutoDiscover: () => void;
   export let onSelectVivadoSettings64Path: (settings64Path: string) => void;
 
@@ -155,6 +156,15 @@
       on:keydown={(event) => onButtonKeydown(event, onShowResults)}
     >
       Show Results
+    </vscode-button>
+    <vscode-button
+      appearance="secondary"
+      role="button"
+      tabindex="0"
+      on:click={onResetProject}
+      on:keydown={(event) => onButtonKeydown(event, onResetProject)}
+    >
+      Reset Project
     </vscode-button>
   </div>
 

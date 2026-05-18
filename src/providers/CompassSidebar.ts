@@ -7,13 +7,15 @@ import {
     type DisplayFile,
 } from "../services/yamlService";
 import type { ParamYamlMetricInputs } from "../services/paramYaml";
+import { resetCompassProjectArtifacts } from "../services/projectReset";
 import { normalizeDseOptions, type DseOptions } from "../services/hgboDseConfig";
 import {
     prepareHgboDsePackage,
     listHgboRuns,
     readLatestHgboRunFiles,
     readHgboRunFiles,
-    readHgboRunDetails,
+    readHgboRunArtifact,
+    readHgboRunOverview,
     runHgboDse,
     runHgboImplVerification,
     buildHgboDseEnvironment,
@@ -21,6 +23,8 @@ import {
     type DseLogPayload,
     type HgboDseRunCallbacks,
     type HgboRunSummary,
+    type HgboRunOverviewPayload,
+    type HgboRunResultsPayload,
     type DseStatusPayload,
     type RemoteInferenceRuntime,
 } from "../services/hgboDseRunner";
@@ -43,6 +47,7 @@ export class CompassSidebar implements Sidebar {
     private isLocalSupported = true;
     private vivadoDiscovery: VivadoDiscoveryStatus | undefined;
     private latestDseFiles: DisplayFile[] = [];
+    private latestYamlOutputDirectory: vscode.Uri | undefined;
     private resultsLoadRequestId = 0;
     private resultRuns: HgboRunSummary[] = [];
     private webviewResourceVersion = 0;
@@ -111,6 +116,9 @@ export class CompassSidebar implements Sidebar {
             case "runAll":
                 await this.handleRunAll(this.getParamValues(data), this.getDseOptions(data));
                 break;
+            case "resetProject":
+                await this.handleResetProject();
+                break;
             case "initCompass":
                 await this.handleInitCompass();
                 break;
@@ -174,6 +182,7 @@ export class CompassSidebar implements Sidebar {
                             await this.tdmConfigService?.pruneDisabledDocumentItems(sourceDocument, directory);
                         },
                     });
+                    this.latestYamlOutputDirectory = outputDirectory;
                     this._view?.webview.postMessage({
                         type: "configFiles",
                         files,
@@ -294,6 +303,9 @@ export class CompassSidebar implements Sidebar {
         panel.setImplVerificationHandler(async (selectedRunId, trials) => {
             await this.handleVerifyImpl(panel, workspaceFolder, selectedRunId, trials);
         });
+        panel.setArtifactContentHandler(async (selectedRunId, artifactId) =>
+            readHgboRunArtifact(workspaceFolder.uri, selectedRunId, artifactId)
+        );
         const requestId = ++this.resultsLoadRequestId;
         panel.renderLoading("Discovering .compass runs...");
 
@@ -335,21 +347,18 @@ export class CompassSidebar implements Sidebar {
         runs: HgboRunSummary[],
         requestId: number
     ) {
-        const results = await readHgboRunDetails(workspaceUri, runId, runs);
+        const overview = await readHgboRunOverview(workspaceUri, runId);
         if (requestId !== this.resultsLoadRequestId) {
             return;
         }
 
-        if (!results) {
+        if (!overview) {
             panel.renderMessage("No Inference + DSE artifacts found. Run Inference + DSE first.", runId);
             vscode.window.showInformationMessage("No Inference + DSE artifacts found. Run Inference + DSE first.");
             return;
         }
 
-        panel.render({
-            ...results,
-            logs: results.logs.filter(file => this.isTextResult(file.name)),
-        });
+        panel.render(this.overviewToResultsPayload({ ...overview, runs }));
     }
 
     private async handleVerifyImpl(
@@ -364,7 +373,7 @@ export class CompassSidebar implements Sidebar {
             return;
         }
 
-        const results = await readHgboRunDetails(workspaceFolder.uri, runId, runs);
+        const results = await readHgboRunOverview(workspaceFolder.uri, runId);
         if (!results) {
             vscode.window.showErrorMessage(`Could not load ${runId} before implementation verification.`);
             return;
@@ -427,17 +436,46 @@ export class CompassSidebar implements Sidebar {
                         message,
                         error: message,
                     });
-                    const latestResults = await readHgboRunDetails(workspaceFolder.uri, runId, runs);
+                    const latestResults = await readHgboRunOverview(workspaceFolder.uri, runId);
                     if (latestResults) {
-                        panel.render({
-                            ...latestResults,
-                            logs: latestResults.logs.filter(file => this.isTextResult(file.name)),
-                        });
+                        panel.render(this.overviewToResultsPayload({ ...latestResults, runs }));
                     }
                     vscode.window.showErrorMessage(`Implementation verification failed: ${message}`);
                 }
             }
         );
+    }
+
+    private overviewToResultsPayload(overview: HgboRunOverviewPayload): HgboRunResultsPayload {
+        return {
+            runId: overview.runId,
+            runs: overview.runs,
+            logs: [],
+            fileGroups: overview.artifactGroups
+                .map(group => ({
+                    id: group.id,
+                    projectId: group.projectId,
+                    projectLabel: group.projectLabel,
+                    trial: group.trial,
+                    files: group.artifacts
+                        .filter(artifact => artifact.kind === "text")
+                        .map(artifact => ({
+                            name: artifact.name,
+                            content: "",
+                        })),
+                }))
+                .filter(group => group.files.length > 0),
+            svgs: overview.graphs.map(graph => ({
+                name: graph.name,
+                uri: "",
+                content: "",
+            })),
+            plot: overview.plot,
+            trialManifest: overview.trialManifest,
+            verification: overview.verification,
+            loading: overview.loading,
+            message: overview.message,
+        };
     }
 
     private async handleRunInference(dseOptions: DseOptions = normalizeDseOptions(undefined)): Promise<boolean> {
@@ -521,6 +559,57 @@ export class CompassSidebar implements Sidebar {
             return;
         }
         await this.handleShowInference();
+    }
+
+    private async handleResetProject(): Promise<void> {
+        const workspaceFolder = this.getWorkspaceFolder();
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage("No workspace folder is open.");
+            return;
+        }
+
+        const confirmed = await vscode.window.showWarningMessage(
+            "Reset generated Compass artifacts? This removes generated YAML files, packaged .compass inputs, runs, logs, and results. Source files and base project code are not touched.",
+            { modal: true },
+            "Reset Project"
+        );
+        if (confirmed !== "Reset Project") {
+            return;
+        }
+
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: "Resetting Compass project...",
+                cancellable: false,
+            },
+            async progress => {
+                progress.report({ increment: 20, message: "Deleting generated artifacts" });
+                const summary = await resetCompassProjectArtifacts(workspaceFolder.uri, {
+                    yamlDirectories: this.latestYamlOutputDirectory ? [this.latestYamlOutputDirectory] : [],
+                });
+
+                this.latestDseFiles = [];
+                this.resultRuns = [];
+                this.resultsLoadRequestId += 1;
+                this._view?.webview.postMessage({
+                    type: "projectReset",
+                    value: summary,
+                });
+                ResultPanel.currentPanel?.renderMessage("Project reset. Generated Compass artifacts were removed.", "latest");
+
+                progress.report({ increment: 80, message: "Refresh project state" });
+                this.postProjectStatus();
+                this.postSavedProjects();
+
+                if (summary.failed.length > 0) {
+                    vscode.window.showErrorMessage(`Project reset completed with ${summary.failed.length} cleanup error(s).`);
+                    return;
+                }
+
+                vscode.window.showInformationMessage(`Project reset removed ${summary.deleted.length} generated artifact path(s).`);
+            }
+        );
     }
 
     private getParamValues(data: any): ParamYamlMetricInputs | undefined {
@@ -807,10 +896,6 @@ export class CompassSidebar implements Sidebar {
         }
 
         return files.sort();
-    }
-
-    private isTextResult(name: string): boolean {
-        return /\.(txt|log|json|ya?ml|tcl|csv|md)$/i.test(name);
     }
 
     private getWorkspaceFolder(): vscode.WorkspaceFolder | undefined {

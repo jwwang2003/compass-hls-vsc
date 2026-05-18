@@ -58,7 +58,8 @@
     | { type: "remoteInferenceConfig"; value: { endpoint: string; hasApiKey: boolean } }
     | { type: "savedProjects"; projects: string[] }
     | (VSCodeMessage<DseStatus> & { type: "dseStatus" })
-    | (VSCodeMessage<DseLog> & { type: "dseLog" });
+    | (VSCodeMessage<DseLog> & { type: "dseLog" })
+    | { type: "projectReset" };
 
   let displayMode: DisplayMode = "flow";
   let isProjectOpen = true;
@@ -143,6 +144,10 @@
       case "dseLog":
         dseLogs = [...dseLogs, msg.value].slice(-200);
         break;
+      case "projectReset":
+        dseStatus = createIdleDseStatus();
+        dseLogs = [];
+        break;
     }
   }
 
@@ -160,6 +165,10 @@
 
   function runAll() {
     vscode_comm.postMessage({ type: "runAll", value: buildGenerateYamlPayload() });
+  }
+
+  function resetProject() {
+    vscode_comm.postMessage({ type: "resetProject", value: "" });
   }
 
   function generateYamls() {
@@ -330,6 +339,7 @@
         onRunInference={runInference}
         onShowResults={showResults}
         onRunAll={runAll}
+        onResetProject={resetProject}
       />
     {:else}
       <MoreDashboard
@@ -354,6 +364,7 @@
         onPackageUpload={packageUpload}
         onRunInference={runInference}
         onShowResults={showResults}
+        onResetProject={resetProject}
         onToggleAutoDiscover={toggleAutoDiscover}
       />
     {/if}

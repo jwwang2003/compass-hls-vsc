@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { main as generateConfigYaml } from "../analysis/launch";
+import { pickPreferredCSourceFile, type CSourceCandidate } from "./hlsSourceSelection";
 import { buildParamYaml, type ParamYamlMetricInputs } from "./paramYaml";
 
 export interface DisplayFile {
@@ -79,11 +80,40 @@ export async function readYamlFiles(directory: vscode.Uri): Promise<DisplayFile[
 }
 
 async function getCFilePath(): Promise<vscode.Uri | null> {
+    const candidates: CSourceCandidate[] = [];
+    const uriByKey = new Map<string, vscode.Uri>();
     const editor = vscode.window.activeTextEditor;
-    if (editor?.document.uri.scheme === "file" && editor.document.fileName.endsWith(".c")) {
-        return editor.document.uri;
+    const activeDocument = editor?.document;
+
+    if (activeDocument?.uri.scheme === "file" && activeDocument.fileName.toLowerCase().endsWith(".c")) {
+        const key = activeDocument.uri.toString();
+        uriByKey.set(key, activeDocument.uri);
+        candidates.push({
+            uri: key,
+            source: activeDocument.getText(),
+            active: true,
+        });
     }
 
-    const matches = await vscode.workspace.findFiles("**/*.c", SEARCH_EXCLUDES, 1);
-    return matches[0] ?? null;
+    const matches = await vscode.workspace.findFiles("**/*.c", SEARCH_EXCLUDES, 200);
+    for (const match of matches) {
+        const key = match.toString();
+        if (uriByKey.has(key)) {
+            continue;
+        }
+
+        try {
+            const bytes = await vscode.workspace.fs.readFile(match);
+            uriByKey.set(key, match);
+            candidates.push({
+                uri: key,
+                source: Buffer.from(bytes).toString("utf8"),
+            });
+        } catch {
+            // Ignore unreadable files and keep considering other workspace sources.
+        }
+    }
+
+    const selected = pickPreferredCSourceFile(candidates);
+    return selected ? uriByKey.get(selected.uri) ?? vscode.Uri.parse(selected.uri) : null;
 }

@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 
-import type { HgboRunResultsPayload, HgboRunSummary } from "../services/hgboDseRunner";
+import type {
+    HgboRunArtifactContent,
+    HgboRunResultsPayload,
+    HgboRunSummary,
+} from "../services/hgboDseRunner";
 import { getNonce } from "../utilities/getNonce";
 import { versionedWebviewUri } from "../utilities/webviewCacheBust";
 
@@ -12,6 +16,7 @@ export class ResultPanel {
     private pendingData: HgboRunResultsPayload = createEmptyResultsPayload();
     private onSelectRun: ((runId: string) => Promise<void> | void) | undefined;
     private onVerifyImpl: ((runId: string, trials: number[]) => Promise<void> | void) | undefined;
+    private onLoadArtifact: ((runId: string, artifactId: string) => Promise<HgboRunArtifactContent | undefined> | HgboRunArtifactContent | undefined) | undefined;
     private webviewResourceVersion = 0;
 
     public static createOrShow(extensionUri: vscode.Uri, inferenceId = "latest"): ResultPanel {
@@ -65,6 +70,12 @@ export class ResultPanel {
 
     public setImplVerificationHandler(onVerifyImpl: (runId: string, trials: number[]) => Promise<void> | void) {
         this.onVerifyImpl = onVerifyImpl;
+    }
+
+    public setArtifactContentHandler(
+        onLoadArtifact: (runId: string, artifactId: string) => Promise<HgboRunArtifactContent | undefined> | HgboRunArtifactContent | undefined
+    ) {
+        this.onLoadArtifact = onLoadArtifact;
     }
 
     public render(results: HgboRunResultsPayload) {
@@ -147,6 +158,21 @@ export class ResultPanel {
 
         if (message.type === "verifyImpl" && isVerifyImplPayload(message.value)) {
             await this.onVerifyImpl?.(message.value.runId, message.value.trials);
+            return;
+        }
+
+        if (message.type === "getArtifactContent" && isArtifactContentPayload(message.value)) {
+            const artifact = await this.onLoadArtifact?.(message.value.runId, message.value.artifactId);
+            this.panel.webview.postMessage({
+                type: "artifactContent",
+                value: {
+                    requestId: message.value.requestId,
+                    runId: message.value.runId,
+                    artifactId: message.value.artifactId,
+                    artifact,
+                    error: artifact ? undefined : "Artifact not found.",
+                },
+            });
         }
     }
 
@@ -213,4 +239,15 @@ function isVerifyImplPayload(value: unknown): value is { runId: string; trials: 
     return typeof payload.runId === "string" &&
         Array.isArray(payload.trials) &&
         payload.trials.every(trial => Number.isInteger(trial));
+}
+
+function isArtifactContentPayload(value: unknown): value is { requestId: number; runId: string; artifactId: string } {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const payload = value as { requestId?: unknown; runId?: unknown; artifactId?: unknown };
+    return Number.isInteger(payload.requestId) &&
+        typeof payload.runId === "string" &&
+        typeof payload.artifactId === "string";
 }

@@ -46,6 +46,39 @@ test("auto discovery adds functions, parameters, and loop directives unless disa
     assert.equal(isLoopDirectiveSelected(config, "group_bfs_loop_i", "pipeline", "bfs/loop_i"), false);
 });
 
+test("auto discovery chooses the best kernel candidate when helper appears first", () => {
+    const config = createDefaultConfig();
+
+    applyAutoDiscovery(config, {
+        functions: [
+            { name: "helper", range, parameters: [] },
+            {
+                name: "kernel",
+                range,
+                parameters: [
+                    { functionName: "kernel", name: "input", ref: "kernel input", range },
+                    { functionName: "kernel", name: "output", ref: "kernel output", range },
+                ],
+            },
+        ],
+        parameters: [
+            { functionName: "kernel", name: "input", ref: "kernel input", range },
+            { functionName: "kernel", name: "output", ref: "kernel output", range },
+        ],
+        loops: [{
+            functionName: "kernel",
+            label: "loop_i",
+            ref: "kernel/loop_i",
+            group: "group_kernel_loop_i",
+            range,
+        }],
+    }, () => false);
+
+    assert.deepEqual(config.top, ["kernel"]);
+    assert.deepEqual(config.interList, ["kernel input", "kernel output"]);
+    assert.deepEqual(Object.keys(config.loopList), ["group_kernel_loop_i"]);
+});
+
 test("auto discovery only adds candidates from the selected top function", () => {
     const config = createDefaultConfig();
     config.top.push("kernel");

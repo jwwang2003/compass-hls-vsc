@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
 
 import { TdmConfigService } from "../tdmConfigService";
-import { discoverTdmCandidates } from "../tdmDiscovery";
-import { discoverDictOpIntHintsFromRoot } from "../tdmDictOpHintCore";
+import { tdmCandidatesFromCore } from "../tdmDiscovery";
 import { buildTdmCodeLensItems } from "../tdmCodeLensModel";
-import { getCachedTree } from "../webTreeSitter";
+import {
+    getCodeLensAnalysisSnapshot,
+    recomputeTdmAnalysisSnapshot,
+} from "../tdmAnalysis";
 import { DebouncedAction } from "../../utilities/debounce";
 
 interface CodeLensCacheEntry {
@@ -95,16 +97,24 @@ export class TdmCodeLensProvider implements vscode.CodeLensProvider, vscode.Disp
     }
 
     private async recompute(document: vscode.TextDocument) {
-        await this.computeAndCache(document);
+        await this.computeAndCache(document, undefined, true);
         this.onDidChangeEmitter.fire();
     }
 
     private async computeAndCache(
         document: vscode.TextDocument,
-        token?: vscode.CancellationToken
+        token?: vscode.CancellationToken,
+        fresh = false
     ): Promise<vscode.CodeLens[]> {
-        const candidates = discoverTdmCandidates(document);
-        const dictOpHints = discoverDictOpIntHints(document);
+        const snapshot = fresh ? recomputeTdmAnalysisSnapshot(document) : getCodeLensAnalysisSnapshot(document);
+        const candidates = tdmCandidatesFromCore(snapshot.candidates);
+        const dictOpHints = snapshot.dictOpHints.map(hint => ({
+            ...hint,
+            range: new vscode.Range(
+                new vscode.Position(hint.range.start.row, hint.range.start.column),
+                new vscode.Position(hint.range.end.row, hint.range.end.column)
+            ),
+        }));
         const config = await this.configService.getSelectionSnapshot();
         if (token?.isCancellationRequested) {
             return [];
@@ -115,27 +125,11 @@ export class TdmCodeLensProvider implements vscode.CodeLensProvider, vscode.Disp
                 title: item.title,
                 command: item.command,
                 arguments: item.arguments,
-            }));
+        }));
         this.lensCache.set(document.uri.toString(), {
-            version: document.version,
+            version: snapshot.version,
             lenses,
         });
         return lenses;
     }
-}
-
-function discoverDictOpIntHints(document: vscode.TextDocument) {
-    const tree = getCachedTree(document);
-    if (!tree) {
-        return [];
-    }
-
-    return discoverDictOpIntHintsFromRoot(tree.rootNode)
-        .map(hint => ({
-            ...hint,
-            range: new vscode.Range(
-                new vscode.Position(hint.range.start.row, hint.range.start.column),
-                new vscode.Position(hint.range.end.row, hint.range.end.column)
-            ),
-        }));
 }

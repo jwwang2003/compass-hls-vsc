@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
 import { Node } from "web-tree-sitter";
 
-import { getCachedTree } from "./webTreeSitter";
+import { getTdmAnalysisSnapshot, invalidateTdmAnalysis } from "./tdmAnalysis";
 import {
     createLoopCandidateFromNode,
-    discoverTdmCandidatesFromRoot,
     rangeFromNodeLike,
     type SourceRange,
+    type TdmCandidatesCore,
 } from "./tdmDiscoveryCore";
 
 export interface FunctionCandidate {
@@ -36,31 +36,16 @@ export interface TdmCandidates {
     loops: LoopCandidate[];
 }
 
-interface CandidateCacheEntry {
-    version: number;
-    candidates: TdmCandidates;
+export function discoverTdmCandidates(document: vscode.TextDocument): TdmCandidates {
+    return tdmCandidatesFromCore(getTdmAnalysisSnapshot(document).candidates);
 }
 
-const candidateCache = new Map<string, CandidateCacheEntry>();
+export function clearTdmCandidateCache(uri?: vscode.Uri) {
+    invalidateTdmAnalysis(uri);
+}
 
-export function discoverTdmCandidates(document: vscode.TextDocument): TdmCandidates {
-    const tree = getCachedTree(document);
-    if (!tree) {
-        return {
-            functions: [],
-            parameters: [],
-            loops: [],
-        };
-    }
-
-    const cacheKey = document.uri.toString();
-    const cached = candidateCache.get(cacheKey);
-    if (cached?.version === document.version) {
-        return cached.candidates;
-    }
-
-    const candidates = discoverTdmCandidatesFromRoot(tree.rootNode);
-    const converted = {
+export function tdmCandidatesFromCore(candidates: TdmCandidatesCore): TdmCandidates {
+    return {
         functions: candidates.functions.map(fn => ({
             ...fn,
             range: rangeFromSourceRange(fn.range),
@@ -78,20 +63,6 @@ export function discoverTdmCandidates(document: vscode.TextDocument): TdmCandida
             range: rangeFromSourceRange(loop.range),
         })),
     };
-    candidateCache.set(cacheKey, {
-        version: document.version,
-        candidates: converted,
-    });
-    return converted;
-}
-
-export function clearTdmCandidateCache(uri?: vscode.Uri) {
-    if (!uri) {
-        candidateCache.clear();
-        return;
-    }
-
-    candidateCache.delete(uri.toString());
 }
 
 export function createLoopCandidate(node: Node, functionName: string, label?: string): LoopCandidate {

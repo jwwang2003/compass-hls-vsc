@@ -1,4 +1,5 @@
 import type { TdmCandidates } from "./tdmDiscovery";
+import { rankTopFunctionSignals, type TopFunctionSignal } from "../analysis/topFunctionDetection";
 
 export type DictOpValue = Record<string, string[]> | string[];
 
@@ -319,8 +320,36 @@ function getAutoDiscoveryTargetFunctions(config: TdmConfigSchema, candidates: Td
         return new Set(config.top);
     }
 
-    const firstFunction = candidates.functions[0]?.name;
-    return new Set(firstFunction ? [firstFunction] : []);
+    const bestFunction = chooseAutoDiscoveryTopFunction(candidates);
+    return new Set(bestFunction ? [bestFunction] : []);
+}
+
+function chooseAutoDiscoveryTopFunction(candidates: TdmCandidates): string | undefined {
+    const loopCounts = new Map<string, number>();
+    const parameterCounts = new Map<string, number>();
+
+    for (const loop of candidates.loops) {
+        loopCounts.set(loop.functionName, (loopCounts.get(loop.functionName) ?? 0) + 1);
+    }
+
+    for (const parameter of candidates.parameters) {
+        parameterCounts.set(parameter.functionName, (parameterCounts.get(parameter.functionName) ?? 0) + 1);
+    }
+
+    const signals: TopFunctionSignal[] = candidates.functions.map((fn, order) => {
+        const parameterCount = Math.max(fn.parameters.length, parameterCounts.get(fn.name) ?? 0);
+
+        return {
+            name: fn.name,
+            order,
+            parameterCount,
+            interfaceParameterCount: parameterCount,
+            loopCount: loopCounts.get(fn.name) ?? 0,
+            isRoot: true,
+        };
+    });
+
+    return rankTopFunctionSignals(signals)[0]?.candidate.name;
 }
 
 function functionNameFromConfigRef(ref: string): string | undefined {

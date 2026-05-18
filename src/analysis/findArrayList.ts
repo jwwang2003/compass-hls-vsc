@@ -1,58 +1,96 @@
-import { getParser } from './getParser';
+import Parser from "tree-sitter";
+
+import { getParser } from "./getParser";
+import { selectTopFunction } from "./topFunctionDetection";
 
 /**
- * 提取顶层父函数中声明的数组变量名
- * @param code C 源码字符串
- * @returns 数组变量名数组
+ * Collect local array declarations inside the selected top function.
  */
-export function findArrayList(code: string): string[] {
+export function findArrayList(code: string, topFunctionName = selectTopFunction(code)): string[] {
+    if (!topFunctionName) {
+        return [];
+    }
+
     const parser = getParser();
     const tree = parser.parse(code);
+    const topNode = findFunctionNode(tree.rootNode, code, topFunctionName);
 
-    const functionNames: string[] = [];
-    const calledFunctionNames: string[] = [];
-    const topFunctionNames: string[] = [];
-    const arrayNames: string[] = [];
+    if (!topNode) {
+        return [];
+    }
 
-    // 1. 找出所有函数名和被调用函数名
-    tree.rootNode.children.forEach(node => {
-        if (node.type === 'function_definition') {
-            const declarator = node.namedChildren.find(child => child.type === 'function_declarator');
-            const idNode = declarator?.namedChildren.find(child => child.type === 'identifier');
-            if (idNode) {functionNames.push(idNode.text);}
-
-            node.descendantsOfType('call_expression').forEach(callNode => {
-                const idNode = callNode.namedChildren[0];
-                if (idNode) {calledFunctionNames.push(idNode.text);}
-            });
-        }
-    });
-
-    // 2. 找出顶层父函数
-    functionNames.forEach(name => {
-        if (!calledFunctionNames.includes(name)) {topFunctionNames.push(name);}
-    });
-
-    // 3. 在顶层父函数中找数组声明
-    tree.rootNode.children.forEach(node => {
-        if (node.type === 'function_definition') {
-            const declarator = node.namedChildren.find(child => child.type === 'function_declarator');
-            const idNode = declarator?.namedChildren.find(child => child.type === 'identifier');
-            if (idNode && topFunctionNames.includes(idNode.text)) {
-                node.descendantsOfType('declaration').forEach(decl => {
-                    decl.namedChildren.forEach(initDecl => {
-                        if (initDecl.type === 'init_declarator') {
-                            const firstChild = initDecl.namedChildren[0];
-                            if (firstChild && firstChild.type === 'array_declarator') {
-                                const arrName = firstChild.namedChildren[0];
-                                if (arrName) {arrayNames.push(arrName.text);}
-                            }
-                        }
-                    });
-                });
+    const arrayNames = new Set<string>();
+    for (const declaration of topNode.descendantsOfType("declaration")) {
+        for (const arrayDeclarator of declaration.descendantsOfType("array_declarator")) {
+            const identifier = firstDescendantOfType(arrayDeclarator, "identifier");
+            if (identifier) {
+                arrayNames.add(nodeText(identifier, code));
             }
         }
-    });
+    }
 
-    return arrayNames;
+    return [...arrayNames];
+}
+
+function findFunctionNode(
+    rootNode: Parser.SyntaxNode,
+    sourceCode: string,
+    functionName: string
+): Parser.SyntaxNode | undefined {
+    for (const node of rootNode.namedChildren) {
+        if (node.type === "function_definition" && getFunctionName(node, sourceCode) === functionName) {
+            return node;
+        }
+    }
+
+    return undefined;
+}
+
+function getFunctionName(node: Parser.SyntaxNode, sourceCode: string): string | undefined {
+    const declarator = getField(node, "declarator")
+        ?? node.namedChildren.find(child => child.type === "function_declarator");
+    const identifier = firstDescendantOfType(declarator, "identifier");
+    return identifier ? nodeText(identifier, sourceCode) : undefined;
+}
+
+function getField(node: Parser.SyntaxNode | null | undefined, name: string): Parser.SyntaxNode | null {
+    if (!node) {
+        return null;
+    }
+
+    const field = typeof (node as any).childForFieldName === "function"
+        ? (node as any).childForFieldName(name)
+        : null;
+    if (field) {
+        return field;
+    }
+
+    const nodeField = (node as any)[`${name}Node`];
+    return nodeField && typeof nodeField === "object" ? nodeField : null;
+}
+
+function firstDescendantOfType(
+    node: Parser.SyntaxNode | null | undefined,
+    type: string
+): Parser.SyntaxNode | null {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === type) {
+        return node;
+    }
+
+    for (const child of node.namedChildren) {
+        const match = firstDescendantOfType(child, type);
+        if (match) {
+            return match;
+        }
+    }
+
+    return null;
+}
+
+function nodeText(node: Parser.SyntaxNode, sourceCode: string): string {
+    return sourceCode.slice(node.startIndex, node.endIndex);
 }

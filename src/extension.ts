@@ -7,12 +7,14 @@ import { TdmHoverProvider } from './parser/providers/tdmHoverProvider';
 import { TdmConfigService } from './parser/tdmConfigService';
 import {
 	clearAstCache,
-	getCachedTree,
 	initializeWebTreeSitter,
 	invalidateCachedTree,
 	updateCachedTree,
 } from './parser/webTreeSitter';
-import { clearTdmCandidateCache } from './parser/tdmDiscovery';
+import {
+	getTdmAnalysisSnapshot,
+	invalidateTdmAnalysis,
+} from './parser/tdmAnalysis';
 import {
 	isLoopDirectiveSelected,
 	isParamSelected,
@@ -101,8 +103,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			invalidateCachedTree(document.uri);
-			clearTdmCandidateCache(document.uri);
-			getCachedTree(document);
+			invalidateTdmAnalysis(document.uri);
+			getTdmAnalysisSnapshot(document);
 			const changedConfig = await tdmConfigService.autoDiscoverDocument(document);
 			if (changedConfig) {
 				codeLensProvider.invalidate();
@@ -193,7 +195,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			getCachedTree(document);
+			getTdmAnalysisSnapshot(document);
 			const changedConfig = await tdmConfigService.autoDiscoverDocument(document);
 			dictOpDecorationProvider.refresh();
 			if (changedConfig) {
@@ -207,7 +209,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			updateCachedTree(event.document, event.contentChanges);
-			clearTdmCandidateCache(event.document.uri);
 			codeLensProvider.refresh();
 			dictOpDecorationProvider.refresh();
 		}),
@@ -216,7 +217,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			getCachedTree(document);
+			getTdmAnalysisSnapshot(document);
 			const changedConfig = await tdmConfigService.autoDiscoverDocument(document);
 			dictOpDecorationProvider.refresh();
 			if (changedConfig) {
@@ -226,7 +227,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.window.onDidChangeActiveTextEditor(editor => {
 			if (editor?.document.languageId === "c") {
-				getCachedTree(editor.document);
+				getTdmAnalysisSnapshot(editor.document);
 			}
 			dictOpDecorationProvider.refresh();
 		})
@@ -274,7 +275,7 @@ export async function activate(context: vscode.ExtensionContext) {
 export async function deactivate() {
 	await activeTdmConfigService?.flushPendingWrites();
 	clearAstCache();
-	clearTdmCandidateCache();
+	invalidateTdmAnalysis();
 	activeTdmConfigService = undefined;
 }
 
@@ -288,7 +289,7 @@ async function warmActiveDocument(
 	codeLensProvider: TdmCodeLensProvider,
 	dictOpDecorationProvider: TdmDictOpDecorationProvider
 ) {
-	getCachedTree(document);
+	getTdmAnalysisSnapshot(document);
 	const changedConfig = await tdmConfigService.autoDiscoverDocument(document);
 	dictOpDecorationProvider.refresh();
 	if (changedConfig) {

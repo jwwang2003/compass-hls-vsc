@@ -24,6 +24,8 @@ export interface TdmCodeLensDictOpHint {
     variableName: string;
 }
 
+const CODE_LENS_PAIR_SPACING = "\u00a0\u00a0";
+
 export function buildTdmCodeLensItems(
     candidates: TdmCandidates,
     config: TdmConfigSchema,
@@ -35,7 +37,10 @@ export function buildTdmCodeLensItems(
         const selected = isFunctionSelected(config, fn.name);
         items.push({
             range: fn.range,
-            title: `${selected ? "$(check)" : "$(plus)"} ${selected ? "Function in" : "Add function to"} config.yaml`,
+            title: formatCodeLensPair(
+                selected ? "$(check)" : "$(plus)",
+                `${selected ? "Function in" : "Add function to"} config.yaml`
+            ),
             command: "tdmOptimizer.toggleFunction",
             arguments: [fn.name],
         });
@@ -43,7 +48,7 @@ export function buildTdmCodeLensItems(
             const selectedCount = fn.parameters.filter(param => isParamSelected(config, param.ref)).length;
             items.push({
                 range: fn.range,
-                title: `$(list-selection) InterList ${formatHighlightedCodeLensValue("symbol-method", fn.name)} (${selectedCount}/${fn.parameters.length})`,
+                title: `${formatCodeLensPair("$(list-selection)", "InterList")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("symbol-method", fn.name)} (${selectedCount}/${fn.parameters.length})`,
                 command: "tdmOptimizer.pickFunctionInterList",
                 arguments: [
                     fn.name,
@@ -62,7 +67,7 @@ export function buildTdmCodeLensItems(
         ).length;
         items.push({
             range: loop.range,
-            title: `$(settings-gear) Directives ${formatHighlightedCodeLensValue("tag", loop.label)} (${selectedCount}/${LOOP_DIRECTIVES.length})`,
+            title: `${formatCodeLensPair("$(settings-gear)", "Directives")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", loop.label)} (${selectedCount}/${LOOP_DIRECTIVES.length})`,
             command: "tdmOptimizer.pickLoopDirectives",
             arguments: [loop.group, loop.ref, loop.label],
         });
@@ -73,7 +78,7 @@ export function buildTdmCodeLensItems(
         const selected = isVariableOperationSelected(config, hint.configKey, hint.operation, "int");
         items.push({
             range: hint.range,
-            title: `${separator}${selected ? "$(check)" : "$(plus)"} dictOp.int ${formatHighlightedCodeLensValue("symbol-variable", hint.variableName)} ${hint.operation}`,
+            title: `${separator}${formatCodeLensPair(selected ? "$(check)" : "$(plus)", "dictOp.int")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("symbol-variable", hint.variableName)} ${hint.operation}`,
             command: "tdmOptimizer.toggleVariable",
             arguments: [hint.configKey, hint.operation, "int"],
         });
@@ -82,8 +87,12 @@ export function buildTdmCodeLensItems(
     return items;
 }
 
+function formatCodeLensPair(icon: string, label: string): string {
+    return `${icon}${label}`;
+}
+
 function formatHighlightedCodeLensValue(icon: string, value: string): string {
-    return `$(${icon}) [${value}]`;
+    return formatCodeLensPair(`$(${icon})`, `[${value}]`);
 }
 
 function hasItemOnLine(items: TdmCodeLensItem[], line: number | undefined): boolean {

@@ -50,7 +50,7 @@ test("buildTdmCodeLensItems collapses parameter and loop controls", () => {
         "tdmOptimizer.pickLoopDirectives",
         "tdmOptimizer.pickLoopDirectives",
     ]);
-    assert.equal(items[1].title, "$(list-selection) InterList $(symbol-method) [bfs] (1/2)");
+    assert.equal(items[1].title, "$(list-selection)InterList\u00a0\u00a0$(symbol-method)[bfs] (1/2)");
     assert.deepEqual(items[1].arguments, [
         "bfs",
         [
@@ -58,7 +58,7 @@ test("buildTdmCodeLensItems collapses parameter and loop controls", () => {
             { name: "edges", ref: "bfs edges" },
         ],
     ]);
-    assert.equal(items[2].title, "$(settings-gear) Directives $(tag) [loop_i] (2/4)");
+    assert.equal(items[2].title, "$(settings-gear)Directives\u00a0\u00a0$(tag)[loop_i] (2/4)");
     assert.deepEqual(items[2].arguments, ["group_bfs_loop_i", "bfs/loop_i", "loop_i"]);
 });
 
@@ -86,7 +86,7 @@ test("buildTdmCodeLensItems appends dictOp int hints after existing same-line co
         "tdmOptimizer.pickLoopDirectives",
         "tdmOptimizer.toggleVariable",
     ]);
-    assert.equal(items[1].title, "| $(plus) dictOp.int $(symbol-variable) [i] add");
+    assert.equal(items[1].title, "| $(plus)dictOp.int\u00a0\u00a0$(symbol-variable)[i] add");
     assert.deepEqual(items[1].arguments, ["bfs/loop_i i", "add", "int"]);
 });
 
@@ -108,7 +108,7 @@ test("buildTdmCodeLensItems marks selected dictOp int hints", () => {
         variableName: "i",
     }]);
 
-    assert.equal(items[0].title, "$(check) dictOp.int $(symbol-variable) [i] add");
+    assert.equal(items[0].title, "$(check)dictOp.int\u00a0\u00a0$(symbol-variable)[i] add");
     assert.equal(items[0].command, "tdmOptimizer.toggleVariable");
 });
 

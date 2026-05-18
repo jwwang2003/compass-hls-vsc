@@ -20,11 +20,13 @@ import {
     pruneDisabledCandidates,
     setLoopDirectivesInConfig,
     setParamsInConfig,
+    setVariableOperationsInConfig,
     toggleFunctionInConfig,
     toggleLoopDirectiveInConfig,
     toggleParamInConfig,
     toggleVariableInConfig,
     type TdmConfigSchema,
+    type VariableOperationRef,
 } from "./tdmConfigModel";
 import { LazyTextWriter } from "../utilities/lazyTextWriter";
 
@@ -240,6 +242,30 @@ export class TdmConfigService {
         return this.writeConfig(config);
     }
 
+    public async setVariableOperations(
+        candidates: readonly VariableOperationRef[],
+        selected: readonly VariableOperationRef[],
+        typeName = "int"
+    ): Promise<boolean> {
+        const config = await this.readConfig();
+        const allowedCandidates = candidates.filter(candidate =>
+            isSelectedTopFunctionRef(config, candidate.configKey)
+            || isVariableOperationSelected(config, candidate.configKey, candidate.operation, typeName)
+        );
+        if (allowedCandidates.length === 0 && candidates.length > 0) {
+            return false;
+        }
+
+        const allowedCandidateKeys = new Set(allowedCandidates.map(variableOperationKey));
+        const allowedSelected = selected.filter(candidate =>
+            allowedCandidateKeys.has(variableOperationKey(candidate))
+            && isSelectedTopFunctionRef(config, candidate.configKey)
+        );
+
+        setVariableOperationsInConfig(config, typeName, allowedCandidates, allowedSelected);
+        return this.writeConfig(config);
+    }
+
     public invalidateConfigCache(uri?: vscode.Uri) {
         if (!uri) {
             this.configCache.clear();
@@ -400,6 +426,10 @@ function removeItem(values: string[], item: string) {
     if (index >= 0) {
         values.splice(index, 1);
     }
+}
+
+function variableOperationKey(candidate: VariableOperationRef): string {
+    return JSON.stringify([candidate.configKey, candidate.operation]);
 }
 
 function getErrorMessage(error: unknown): string {

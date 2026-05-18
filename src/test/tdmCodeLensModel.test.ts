@@ -62,8 +62,12 @@ test("buildTdmCodeLensItems collapses parameter and loop controls", () => {
     assert.deepEqual(items[2].arguments, ["group_bfs_loop_i", "bfs/loop_i", "loop_i"]);
 });
 
-test("buildTdmCodeLensItems appends dictOp int hints after existing same-line controls", () => {
+test("buildTdmCodeLensItems groups dictOp int hints by loop", () => {
     const config = createDefaultConfig();
+    config.dictOp.int = {
+        "bfs/loop_i i": ["add"],
+    };
+
     const items = buildTdmCodeLensItems({
         functions: [],
         parameters: [],
@@ -80,22 +84,30 @@ test("buildTdmCodeLensItems appends dictOp int hints after existing same-line co
         operation: "add",
         range: lineRange(4),
         variableName: "i",
+    }, {
+        configKey: "bfs/loop_i cnt",
+        loopRef: "bfs/loop_i",
+        operation: "add",
+        range: lineRange(6),
+        variableName: "cnt",
     }]);
 
     assert.deepEqual(items.map(item => item.command), [
         "tdmOptimizer.pickLoopDirectives",
-        "tdmOptimizer.toggleVariable",
+        "tdmOptimizer.pickDictOpInt",
     ]);
-    assert.equal(items[1].title, "| $(plus)dictOp.int\u00a0\u00a0$(symbol-variable)[i] add");
-    assert.deepEqual(items[1].arguments, ["bfs/loop_i i", "add", "int"]);
+    assert.equal(items[1].title, "| $(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_i] (1/2)");
+    assert.deepEqual(items[1].arguments, [
+        "bfs/loop_i",
+        [
+            { configKey: "bfs/loop_i i", variableName: "i", operation: "add" },
+            { configKey: "bfs/loop_i cnt", variableName: "cnt", operation: "add" },
+        ],
+    ]);
 });
 
-test("buildTdmCodeLensItems marks selected dictOp int hints", () => {
+test("buildTdmCodeLensItems groups dictOp hints separately by loop", () => {
     const config = createDefaultConfig();
-    config.dictOp.int = {
-        "bfs/loop_i i": ["add"],
-    };
-
     const items = buildTdmCodeLensItems({
         functions: [],
         parameters: [],
@@ -106,10 +118,19 @@ test("buildTdmCodeLensItems marks selected dictOp int hints", () => {
         operation: "add",
         range: lineRange(4),
         variableName: "i",
+    }, {
+        configKey: "bfs/loop_j j",
+        loopRef: "bfs/loop_j",
+        operation: "add",
+        range: lineRange(9),
+        variableName: "j",
     }]);
 
-    assert.equal(items[0].title, "$(check)dictOp.int\u00a0\u00a0$(symbol-variable)[i] add");
-    assert.equal(items[0].command, "tdmOptimizer.toggleVariable");
+    assert.deepEqual(items.map(item => item.title), [
+        "$(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_i] (0/1)",
+        "$(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_j] (0/1)",
+    ]);
+    assert.deepEqual(items.map(item => item.arguments[0]), ["bfs/loop_i", "bfs/loop_j"]);
 });
 
 test("buildTdmCodeLensItems only shows selected top function candidates", () => {
@@ -158,6 +179,6 @@ test("buildTdmCodeLensItems only shows selected top function candidates", () => 
     assert.deepEqual(items.map(item => item.arguments[0]), [
         "kernel",
         "group_kernel_loop_i",
-        "kernel/loop_i i",
+        "kernel/loop_i",
     ]);
 });

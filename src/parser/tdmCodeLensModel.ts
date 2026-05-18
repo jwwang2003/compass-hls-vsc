@@ -24,6 +24,12 @@ export interface TdmCodeLensDictOpHint {
     variableName: string;
 }
 
+export interface TdmCodeLensDictOpPickArg {
+    configKey: string;
+    operation: string;
+    variableName: string;
+}
+
 const CODE_LENS_PAIR_SPACING = "\u00a0\u00a0";
 
 export function buildTdmCodeLensItems(
@@ -73,18 +79,67 @@ export function buildTdmCodeLensItems(
         });
     }
 
-    for (const hint of dictOpHints.filter(hint => isSelectedTopFunctionRef(config, hint.configKey))) {
-        const separator = hasItemOnLine(items, getRangeLine(hint.range)) ? "| " : "";
-        const selected = isVariableOperationSelected(config, hint.configKey, hint.operation, "int");
+    for (const group of groupDictOpHintsByLoop(dictOpHints.filter(hint => isSelectedTopFunctionRef(config, hint.configKey)))) {
+        const firstHint = group.hints[0];
+        const separator = hasItemOnLine(items, getRangeLine(firstHint.range)) ? "| " : "";
+        const selectedCount = group.hints.filter(hint =>
+            isVariableOperationSelected(config, hint.configKey, hint.operation, "int")
+        ).length;
         items.push({
-            range: hint.range,
-            title: `${separator}${formatCodeLensPair(selected ? "$(check)" : "$(plus)", "dictOp.int")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("symbol-variable", hint.variableName)} ${hint.operation}`,
-            command: "tdmOptimizer.toggleVariable",
-            arguments: [hint.configKey, hint.operation, "int"],
+            range: firstHint.range,
+            title: `${separator}${formatCodeLensPair("$(symbol-operator)", "dictOp.int")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", group.loopRef)} (${selectedCount}/${group.hints.length})`,
+            command: "tdmOptimizer.pickDictOpInt",
+            arguments: [
+                group.loopRef,
+                group.hints.map(hint => ({
+                    configKey: hint.configKey,
+                    variableName: hint.variableName,
+                    operation: hint.operation,
+                })),
+            ],
         });
     }
 
     return items;
+}
+
+function groupDictOpHintsByLoop(hints: readonly TdmCodeLensDictOpHint[]): {
+    loopRef: string;
+    hints: TdmCodeLensDictOpHint[];
+}[] {
+    const groups: {
+        loopRef: string;
+        hints: TdmCodeLensDictOpHint[];
+        hintKeys: Set<string>;
+    }[] = [];
+    const groupByLoopRef = new Map<string, (typeof groups)[number]>();
+
+    for (const hint of hints) {
+        let group = groupByLoopRef.get(hint.loopRef);
+        if (!group) {
+            group = {
+                loopRef: hint.loopRef,
+                hints: [],
+                hintKeys: new Set(),
+            };
+            groupByLoopRef.set(hint.loopRef, group);
+            groups.push(group);
+        }
+
+        const hintKey = dictOpHintKey(hint);
+        if (group.hintKeys.has(hintKey)) {
+            continue;
+        }
+
+        group.hintKeys.add(hintKey);
+        group.hints.push(hint);
+    }
+
+    return groups;
+}
+
+function dictOpHintKey(hint: TdmCodeLensDictOpHint): string {
+    return JSON.stringify([hint.configKey, hint.operation]);
 }
 
 function formatCodeLensPair(icon: string, label: string): string {

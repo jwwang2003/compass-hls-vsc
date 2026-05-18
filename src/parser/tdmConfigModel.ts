@@ -14,6 +14,11 @@ export interface TdmConfigSchema {
 
 export type ToggleResult = "enabled" | "disabled";
 
+export interface VariableOperationRef {
+    configKey: string;
+    operation: string;
+}
+
 export const AUTO_LOOP_DIRECTIVES = ["level", "unroll", "pipeline"] as const;
 export const LOOP_DIRECTIVES = ["level", "unroll", "pipeline", "flatten"] as const;
 const DICT_OP_TYPES = ["int", "float", "double", "half"] as const;
@@ -239,6 +244,25 @@ export function toggleVariableInConfig(
     return "enabled";
 }
 
+export function setVariableOperationsInConfig(
+    config: TdmConfigSchema,
+    typeName: string,
+    candidates: readonly VariableOperationRef[],
+    selected: readonly VariableOperationRef[]
+) {
+    const selectedKeys = new Set(selected.map(variableOperationKey));
+
+    for (const candidate of candidates) {
+        removeVariableFromConfig(config, candidate.configKey, candidate.operation, typeName);
+    }
+
+    for (const candidate of candidates) {
+        if (selectedKeys.has(variableOperationKey(candidate))) {
+            addVariableToConfig(config, candidate.configKey, candidate.operation, typeName);
+        }
+    }
+}
+
 export function removeVariableFromConfig(
     config: TdmConfigSchema,
     key: string,
@@ -361,6 +385,10 @@ function functionNameFromConfigRef(ref: string): string | undefined {
         return undefined;
     }
     return ref.slice(0, separatorIndex);
+}
+
+function variableOperationKey(candidate: VariableOperationRef): string {
+    return JSON.stringify([candidate.configKey, candidate.operation]);
 }
 
 function ensureDictObject(config: TdmConfigSchema, typeName: string): Record<string, string[]> {

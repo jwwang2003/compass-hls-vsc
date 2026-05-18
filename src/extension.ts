@@ -18,6 +18,7 @@ import {
 import {
 	isLoopDirectiveSelected,
 	isParamSelected,
+	isVariableOperationSelected,
 	LOOP_DIRECTIVES,
 } from './parser/tdmConfigModel';
 import { CompassSidebar } from './providers/CompassSidebar';
@@ -144,6 +145,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			"tdmOptimizer.pickLoopDirectives",
 			async (group: string, ref: string, label: string) => {
 				await pickLoopDirectives(group, ref, label, tdmConfigService, codeLensProvider);
+			}
+		),
+		vscode.commands.registerCommand(
+			"tdmOptimizer.pickDictOpInt",
+			async (loopRef: string, variables: DictOpPickArg[]) => {
+				await pickDictOpInt(loopRef, variables, tdmConfigService, codeLensProvider, dictOpDecorationProvider);
 			}
 		),
 		vscode.commands.registerCommand(
@@ -311,6 +318,17 @@ interface FunctionParamPickItem extends vscode.QuickPickItem {
 	ref: string;
 }
 
+interface DictOpPickArg {
+	configKey: string;
+	operation: string;
+	variableName: string;
+}
+
+interface DictOpPickItem extends vscode.QuickPickItem {
+	configKey: string;
+	operation: string;
+}
+
 async function pickFunctionInterList(
 	functionName: string,
 	params: FunctionParamPickArg[],
@@ -365,6 +383,47 @@ async function pickLoopDirectives(
 	await tdmConfigService.setLoopDirectives(group, ref, selected.map(item => item.directive));
 	codeLensProvider.invalidate();
 	codeLensProvider.refreshNow();
+}
+
+async function pickDictOpInt(
+	loopRef: string,
+	variables: DictOpPickArg[],
+	tdmConfigService: TdmConfigService,
+	codeLensProvider: TdmCodeLensProvider,
+	dictOpDecorationProvider: TdmDictOpDecorationProvider
+) {
+	const config = await tdmConfigService.getSelectionSnapshot();
+	const items: DictOpPickItem[] = variables.map(variable => ({
+		label: `${variable.variableName} ${variable.operation}`,
+		description: variable.configKey,
+		picked: isVariableOperationSelected(config, variable.configKey, variable.operation, "int"),
+		configKey: variable.configKey,
+		operation: variable.operation,
+	}));
+	const selected = await vscode.window.showQuickPick(items, {
+		canPickMany: true,
+		placeHolder: "Select variables for dictOp.int",
+		title: `Compass dictOp.int: ${loopRef}`,
+	});
+
+	if (!selected) {
+		return;
+	}
+
+	await tdmConfigService.setVariableOperations(
+		variables.map(variable => ({
+			configKey: variable.configKey,
+			operation: variable.operation,
+		})),
+		selected.map(item => ({
+			configKey: item.configKey,
+			operation: item.operation,
+		})),
+		"int"
+	);
+	codeLensProvider.invalidate();
+	codeLensProvider.refreshNow();
+	dictOpDecorationProvider.refresh();
 }
 
 async function updateLocalSupport(compassSidebar: CompassSidebar) {

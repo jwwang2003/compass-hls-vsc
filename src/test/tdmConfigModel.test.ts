@@ -8,6 +8,7 @@ import {
     isSelectedTopFunctionRef,
     pruneDisabledCandidates,
     setParamsInConfig,
+    setVariableOperationsInConfig,
     setLoopDirectivesInConfig,
     toggleVariableInConfig,
     toggleFunctionInConfig,
@@ -185,6 +186,28 @@ test("toggleVariableInConfig adds and removes one dictOp operation", () => {
 
     assert.equal(toggleVariableInConfig(config, "bfs/loop_i i", "mul", "int"), "disabled");
     assert.deepEqual(config.dictOp.int, {});
+});
+
+test("setVariableOperationsInConfig replaces only the provided dictOp candidates", () => {
+    const config = createDefaultConfig();
+    config.dictOp.int = {
+        "bfs/loop_i i": ["add"],
+        "bfs/loop_i cnt": ["add"],
+        "bfs/loop_j j": ["add"],
+    };
+
+    setVariableOperationsInConfig(config, "int", [
+        { configKey: "bfs/loop_i i", operation: "add" },
+        { configKey: "bfs/loop_i cnt", operation: "add" },
+        { configKey: "bfs/loop_i total", operation: "add" },
+    ], [
+        { configKey: "bfs/loop_i total", operation: "add" },
+    ]);
+
+    assert.deepEqual(config.dictOp.int, {
+        "bfs/loop_j j": ["add"],
+        "bfs/loop_i total": ["add"],
+    });
 });
 
 test("isSelectedTopFunctionRef matches function names and config refs", () => {

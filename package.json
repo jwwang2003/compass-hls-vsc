@@ -20,6 +20,7 @@
     "onCommand:tdmOptimizer.toggleFunction",
     "onCommand:tdmOptimizer.toggleParam",
     "onCommand:tdmOptimizer.toggleLoopDirective",
+    "onCommand:tdmOptimizer.pickDictOpInt",
     "onCommand:tdmOptimizer.addVariable",
     "onCommand:tdmOptimizer.toggleVariable"
   ],
@@ -97,6 +98,10 @@
       {
         "command": "tdmOptimizer.toggleLoopDirective",
         "title": "Compass: Toggle Loop Directive in config.yaml"
+      },
+      {
+        "command": "tdmOptimizer.pickDictOpInt",
+        "title": "Compass: Select dictOp.int Variables"
       },
       {
         "command": "tdmOptimizer.addVariable",

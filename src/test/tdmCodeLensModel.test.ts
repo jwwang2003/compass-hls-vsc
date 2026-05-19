@@ -96,7 +96,7 @@ test("buildTdmCodeLensItems groups dictOp int hints by loop", () => {
         "tdmOptimizer.pickLoopDirectives",
         "tdmOptimizer.pickDictOpInt",
     ]);
-    assert.equal(items[1].title, "| $(symbol-operator)Loop Ops\u00a0\u00a0$(tag)[bfs/loop_i] (1/2)");
+    assert.equal(items[1].title, "$(symbol-operator)Loop Ops\u00a0\u00a0$(tag)[bfs/loop_i] (1/2)");
     assert.deepEqual(items[1].arguments, [
         "bfs/loop_i",
         [

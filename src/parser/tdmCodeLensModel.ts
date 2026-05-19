@@ -81,13 +81,12 @@ export function buildTdmCodeLensItems(
 
     for (const group of groupDictOpHintsByLoop(dictOpHints.filter(hint => isSelectedTopFunctionRef(config, hint.configKey)))) {
         const firstHint = group.hints[0];
-        const separator = hasItemOnLine(items, getRangeLine(firstHint.range)) ? "| " : "";
         const selectedCount = group.hints.filter(hint =>
             isVariableOperationSelected(config, hint.configKey, hint.operation, "int")
         ).length;
         items.push({
             range: firstHint.range,
-            title: `${separator}${formatCodeLensPair("$(symbol-operator)", "Loop Ops")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", group.loopRef)} (${selectedCount}/${group.hints.length})`,
+            title: `${formatCodeLensPair("$(symbol-operator)", "Loop Ops")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", group.loopRef)} (${selectedCount}/${group.hints.length})`,
             command: "tdmOptimizer.pickDictOpInt",
             arguments: [
                 group.loopRef,

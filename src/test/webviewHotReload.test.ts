@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 type ModuleLoad = (request: string, parent: unknown, isMain: boolean) => unknown;
-type Listener = () => void;
+type Listener = (uri?: { fsPath?: string; path?: string; toString(): string }) => void;
 
 const requireModule = createRequire(__filename);
 const moduleWithLoad = requireModule("node:module") as { _load: ModuleLoad };
@@ -20,29 +20,79 @@ test("webview hot reload is only registered in extension development mode", () =
     assert.equal(context.subscriptions.length, 0);
 });
 
-test("webview hot reload watches compiled assets and reloads targets after changes", async () => {
+test("webview hot reload watches compiled assets and sends batched hot updates", async () => {
     const vscode = createVscodeStub();
     const { registerWebviewHotReload } = loadHotReloadModule(vscode);
     const context = createContext(vscode.ExtensionMode.Development);
     let sidebarReloads = 0;
     let resultReloads = 0;
+    const sidebarUpdates: unknown[] = [];
+    const resultUpdates: unknown[] = [];
 
     registerWebviewHotReload(context as any, [
-        { reloadWebview: () => { sidebarReloads += 1; } },
-        { reloadWebview: () => { resultReloads += 1; } },
+        {
+            reloadWebview: () => { sidebarReloads += 1; },
+            hotReloadWebview: update => { sidebarUpdates.push(update); },
+        },
+        {
+            reloadWebview: () => { resultReloads += 1; },
+            hotReloadWebview: update => { resultUpdates.push(update); },
+        },
     ], 5);
 
     assert.equal(vscode.watchers.length, 1);
     assert.equal(vscode.watchers[0].pattern.base, context.extensionUri);
     assert.equal(vscode.watchers[0].pattern.pattern, "out/compiled/*.{js,css}");
 
-    vscode.watchers[0].listeners.change();
-    vscode.watchers[0].listeners.create();
+    vscode.watchers[0].listeners.change(createUri("/extension/out/compiled/MainSidebar.css"));
+    vscode.watchers[0].listeners.create(createUri("/extension/out/compiled/MainSidebar.js"));
     await wait(25);
 
-    assert.equal(sidebarReloads, 1);
-    assert.equal(resultReloads, 1);
+    assert.equal(sidebarReloads, 0);
+    assert.equal(resultReloads, 0);
+    assert.deepEqual(sidebarUpdates, [{
+        files: [
+            "/extension/out/compiled/MainSidebar.css",
+            "/extension/out/compiled/MainSidebar.js",
+        ],
+        hasScript: true,
+        hasStyle: true,
+        version: 1,
+    }]);
+    assert.deepEqual(resultUpdates, sidebarUpdates);
     assert.ok(context.subscriptions.length >= 5);
+});
+
+test("webview hot reload falls back to full reload for legacy targets", async () => {
+    const vscode = createVscodeStub();
+    const { registerWebviewHotReload } = loadHotReloadModule(vscode);
+    const context = createContext(vscode.ExtensionMode.Development);
+    let reloads = 0;
+
+    registerWebviewHotReload(context as any, [
+        { reloadWebview: () => { reloads += 1; } },
+    ], 5);
+
+    vscode.watchers[0].listeners.change(createUri("/extension/out/compiled/MainSidebar.js"));
+    await wait(25);
+
+    assert.equal(reloads, 1);
+});
+
+test("webview hot reload client swaps styles and remounts scripts", () => {
+    const vscode = createVscodeStub();
+    const { createWebviewHotReloadScript } = loadHotReloadModule(vscode);
+    const script = createWebviewHotReloadScript({
+        nonce: "abc",
+        scriptUri: "vscode-resource:/out/compiled/MainSidebar.js",
+        styleUris: ["vscode-resource:/out/compiled/MainSidebar.css"],
+    });
+
+    assert.match(script, /compassHotReload/);
+    assert.match(script, /data-compass-hot-style/);
+    assert.match(script, /data-compass-hot-script/);
+    assert.match(script, /document\.createElement\("script"\)/);
+    assert.match(script, /nextScript\.nonce = "abc"/);
 });
 
 function loadHotReloadModule(vscode: ReturnType<typeof createVscodeStub>) {
@@ -67,6 +117,14 @@ function createContext(extensionMode: number) {
         extensionMode,
         extensionUri: { fsPath: "/extension" },
         subscriptions: [] as Array<{ dispose(): void }>,
+    };
+}
+
+function createUri(fsPath: string) {
+    return {
+        fsPath,
+        path: fsPath,
+        toString: () => fsPath,
     };
 }
 

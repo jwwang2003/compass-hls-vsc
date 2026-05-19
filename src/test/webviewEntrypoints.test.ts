@@ -9,8 +9,9 @@ for (const entrypoint of entrypoints) {
     test(`${entrypoint} mounts its Svelte app with the Svelte 5 API`, () => {
         const source = readFileSync(path.join(process.cwd(), "webviews", "pages", entrypoint), "utf8");
 
-        assert.match(source, /import\s*\{\s*mount\s*\}\s*from\s*["']svelte["']/);
+        assert.match(source, /import\s*\{\s*mount\s*,\s*unmount\s*\}\s*from\s*["']svelte["']/);
         assert.match(source, /mount\s*\(\s*App\s*,\s*\{\s*target:\s*document\.body\s*\}\s*\)/s);
+        assert.match(source, /unmount\s*\(\s*window\.__compassWebviewApp\s*\)/);
         assert.doesNotMatch(source, /new\s+App\s*\(/);
     });
 }
@@ -424,17 +425,31 @@ test("extension hot reloads active webviews from rebuilt compiled assets in deve
     const sidebarSource = readFileSync(path.join(process.cwd(), "src", "providers", "CompassSidebar.ts"), "utf8");
     const panelSource = readFileSync(path.join(process.cwd(), "src", "providers", "ResultPanel.ts"), "utf8");
     const mainSidebarSource = readFileSync(path.join(process.cwd(), "webviews", "sveltePages", "MainSidebar.svelte"), "utf8");
+    const mainEntrypointSource = readFileSync(path.join(process.cwd(), "webviews", "pages", "MainSidebar.ts"), "utf8");
+    const resultEntrypointSource = readFileSync(path.join(process.cwd(), "webviews", "pages", "Result.ts"), "utf8");
 
     assert.match(hotReloadSource, /ExtensionMode\.Development/);
     assert.match(hotReloadSource, /out\/compiled\/\*\.\{js,css\}/);
+    assert.match(hotReloadSource, /createWebviewHotReloadScript/);
+    assert.match(hotReloadSource, /compassHotReload/);
     assert.match(extensionSource, /registerWebviewHotReload/);
     assert.match(extensionSource, /ResultPanel\.reloadCurrentWebview/);
     assert.match(sidebarSource, /webviewResourceVersion/);
     assert.match(sidebarSource, /public reloadWebview\(\)/);
+    assert.match(sidebarSource, /public hotReloadWebview\(/);
+    assert.match(sidebarSource, /createWebviewHotReloadScript/);
+    assert.match(sidebarSource, /data-compass-hot-script/);
     assert.match(sidebarSource, /case\s+["']ready["']/);
     assert.match(panelSource, /webviewResourceVersion/);
     assert.match(panelSource, /public static reloadCurrentWebview\(\)/);
+    assert.match(panelSource, /public hotReloadWebview\(/);
+    assert.match(panelSource, /createWebviewHotReloadScript/);
+    assert.match(panelSource, /data-compass-hot-script/);
     assert.match(mainSidebarSource, /postMessage\(\{\s*type:\s*["']ready["']/);
+    assert.match(mainEntrypointSource, /unmount/);
+    assert.match(mainEntrypointSource, /__compassWebviewApp/);
+    assert.match(resultEntrypointSource, /unmount/);
+    assert.match(resultEntrypointSource, /__compassWebviewApp/);
 });
 
 test("yaml generation uses HGBO-DSE params.yaml filename", () => {

@@ -11,8 +11,10 @@ The extension is intended to streamline a machine-learning-assisted Vitis HLS wo
 ## Features
 
 - **C language assistance**: tree-sitter based analysis for functions, loops, parameters, variables, hover hints, CodeLens actions, and config selection state.
+- **Smart TDM CodeLens**: human-readable `Params`, `Directives`, and `Loop Ops` controls update `config.yaml` without exposing raw schema names in the main UI.
 - **YAML generation**: generates HGBO-DSE-compatible `config.yaml` and `params.yaml` from the active `.c` file or the first `.c` file in the workspace.
 - **Compass workspace flow**: initializes `.compass`, packages source and YAML inputs, and stores run artifacts under `.compass/runs`.
+- **Project reset**: removes generated Compass YAML files, project metadata, logs, packages, and run artifacts while leaving the original source tree intact.
 - **Inference + DSE execution**: launches the bundled `3rdParty/HGBO-DSE` Python flow with configurable DSE options.
 - **Results UI**: opens previous runs, logs, generated files, DSE plots, Pareto study data, and implementation verification output.
 - **Local and remote modes**: local mode is Linux-first and expects Vitis/Vivado 2022.1; remote inference is supported by a Dockerized MCP service.
@@ -122,11 +124,21 @@ Typical Compass flow:
 
 1. Click **Init Compass** to create `.compass`.
 2. Open or select a `.c` source file.
-3. Click **Generate** in the **Generate YAMLs** step to create `config.yaml` and `params.yaml`.
-4. Review DSE settings such as mode, algorithm, case, version, iteration count, clock, and inference mode.
-5. Click **Package** in the **Package .compass** step to package inputs.
-6. Click **Run** in the **Run Inference + DSE** step.
-7. Click **Show** in the **Results** step to inspect logs, plots, artifacts, and implementation verification data.
+3. Use the CodeLens controls in C files to review the selected function, interface parameters, loop directives, and loop operation variables.
+4. Click **Generate** in the **Generate YAMLs** step to create `config.yaml` and `params.yaml`.
+5. Review DSE settings such as mode, algorithm, case, version, iteration count, clock, and inference mode.
+6. Click **Package** in the **Package .compass** step to package inputs.
+7. Click **Run** in the **Run Inference + DSE** step.
+8. Click **Show** in the **Results** step to inspect logs, plots, artifacts, and implementation verification data.
+9. Use **Reset Project** when you want to clear generated YAML/project/log artifacts and start again from the original source.
+
+The C editor UI uses human-readable labels:
+
+- **Params** writes the selected function parameters to `interList`.
+- **Directives** writes loop directives to `loopList`.
+- **Loop Ops** writes arithmetic loop operation variables to `dictOp.int`.
+
+See [TDM Analysis and Config Workflow](docs/TDM_ANALYSIS_AND_CONFIG.md) for the CodeLens, AST caching, top-function detection, and reset behavior.
 
 ## Development Commands
 
@@ -140,6 +152,8 @@ pnpm run lint             # lint TypeScript sources
 pnpm run compile-tests    # compile TypeScript tests to out/
 pnpm test                 # run VS Code extension tests
 ```
+
+In Extension Development mode, `pnpm run watch` enables webview HMR-style updates for rebuilt Rollup assets: CSS is swapped in place and rebuilt webview scripts remount the active Svelte app without replacing the whole webview document. See [Development Workflow](docs/DEVELOPMENT.md).
 
 ## Remote Inference Services
 
@@ -223,10 +237,17 @@ docker compose down
 - `src/parser/`: C analysis, TDM discovery, config state, hover, CodeLens, and decorations.
 - `src/services/`: YAML generation, HGBO-DSE packaging, runner, DSE option parsing, and result processing.
 - `src/providers/`: Compass sidebar and results webview providers.
+- `src/utilities/webviewHotReload.ts`: development-mode webview HMR wiring for Rollup output.
 - `webviews/`: Svelte webview pages, components, styles, and browser-side modules.
 - `resources/`: tree-sitter WASM grammar assets.
 - `3rdParty/HGBO-DSE/`: Python DSE backend and model code.
 - `.compass/`: generated per-workspace metadata, packages, runs, logs, and artifacts.
+
+## Documentation
+
+- [TDM Analysis and Config Workflow](docs/TDM_ANALYSIS_AND_CONFIG.md)
+- [Development Workflow](docs/DEVELOPMENT.md)
+- [Project Review and Merge Notes](docs/PROJECT_REVIEW.md)
 
 ## Extension Settings
 

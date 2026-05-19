@@ -37,6 +37,7 @@ import {
 import { TdmConfigService } from "../parser/tdmConfigService";
 import { getNonce } from "../utilities/getNonce";
 import { versionedWebviewUri } from "../utilities/webviewCacheBust";
+import { createWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
 import type { VivadoDiscoveryStatus } from "../utilities/vivadoDiscovery";
 import { ResultPanel } from "./ResultPanel";
 import { Sidebar } from "./Sidebar";
@@ -961,6 +962,18 @@ export class CompassSidebar implements Sidebar {
         this._view.webview.html = this._getHtmlForWebview(this._view.webview);
     }
 
+    public hotReloadWebview(update: WebviewHotUpdate) {
+        if (!this._view) {
+            return;
+        }
+
+        this.webviewResourceVersion = update.version;
+        void this._view.webview.postMessage({
+            type: "compassHotReload",
+            value: update,
+        });
+    }
+
     private async postInitialState() {
         this.postLocalSupport();
         await this.postProjectStatus();
@@ -976,13 +989,20 @@ export class CompassSidebar implements Sidebar {
         const styleVSCodeUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "vscode.css")
         ), this.webviewResourceVersion);
-        const scriptUri = versionedWebviewUri(webview.asWebviewUri(
+        const scriptBaseUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "MainSidebar.js")
-        ), this.webviewResourceVersion);
-        const styleMainUri = versionedWebviewUri(webview.asWebviewUri(
+        );
+        const scriptUri = versionedWebviewUri(scriptBaseUri, this.webviewResourceVersion);
+        const styleMainBaseUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "MainSidebar.css")
-        ), this.webviewResourceVersion);
+        );
+        const styleMainUri = versionedWebviewUri(styleMainBaseUri, this.webviewResourceVersion);
         const nonce = getNonce();
+        const hotReloadScript = createWebviewHotReloadScript({
+            nonce,
+            scriptUri: scriptBaseUri.toString(),
+            styleUris: [styleMainBaseUri.toString()],
+        });
 
         return `<!DOCTYPE html>
             <html lang="en">
@@ -990,16 +1010,17 @@ export class CompassSidebar implements Sidebar {
                 <meta charset="UTF-8">
                 <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="${styleMainUri}" rel="stylesheet">
+                <link href="${styleMainUri}" rel="stylesheet" data-compass-hot-style="${styleMainBaseUri.toString()}">
                 <link href="${styleResetUri}" rel="stylesheet">
                 <link href="${styleVSCodeUri}" rel="stylesheet">
                 <script nonce="${nonce}">
                     const vscode_comm = acquireVsCodeApi();
                     const tsvscode = vscode_comm;
+                    ${hotReloadScript}
                 </script>
             </head>
             <body></body>
-            <script nonce="${nonce}" src="${scriptUri}"></script>
+            <script nonce="${nonce}" data-compass-hot-script="true" src="${scriptUri}"></script>
             </html>`;
     }
 }

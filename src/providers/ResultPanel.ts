@@ -7,6 +7,7 @@ import type {
 } from "../services/hgboDseRunner";
 import { getNonce } from "../utilities/getNonce";
 import { versionedWebviewUri } from "../utilities/webviewCacheBust";
+import { createWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
 
 export class ResultPanel {
     public static currentPanel: ResultPanel | undefined;
@@ -135,6 +136,14 @@ export class ResultPanel {
         this.update();
     }
 
+    public hotReloadWebview(update: WebviewHotUpdate) {
+        this.webviewResourceVersion = update.version;
+        void this.panel.webview.postMessage({
+            type: "compassHotReload",
+            value: update,
+        });
+    }
+
     private setInferenceId(inferenceId: string) {
         this.inferenceId = inferenceId;
         this.panel.title = `Compass Results - ${this.inferenceId}`;
@@ -184,12 +193,19 @@ export class ResultPanel {
         const vscodeStyleUri = versionedWebviewUri(webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "media", "vscode.css")
         ), this.webviewResourceVersion);
-        const scriptUri = versionedWebviewUri(webview.asWebviewUri(
+        const scriptBaseUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "Result.js")
-        ), this.webviewResourceVersion);
-        const styleUri = versionedWebviewUri(webview.asWebviewUri(
+        );
+        const scriptUri = versionedWebviewUri(scriptBaseUri, this.webviewResourceVersion);
+        const styleBaseUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "Result.css")
-        ), this.webviewResourceVersion);
+        );
+        const styleUri = versionedWebviewUri(styleBaseUri, this.webviewResourceVersion);
+        const hotReloadScript = createWebviewHotReloadScript({
+            nonce,
+            scriptUri: scriptBaseUri.toString(),
+            styleUris: [styleBaseUri.toString()],
+        });
 
         return `<!DOCTYPE html>
             <html lang="en">
@@ -197,15 +213,16 @@ export class ResultPanel {
                 <meta charset="UTF-8">
                 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: https:; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="${styleUri}" rel="stylesheet">
+                <link href="${styleUri}" rel="stylesheet" data-compass-hot-style="${styleBaseUri.toString()}">
                 <link href="${resetUri}" rel="stylesheet">
                 <link href="${vscodeStyleUri}" rel="stylesheet">
                 <script nonce="${nonce}">
                     const vscode_comm = acquireVsCodeApi();
+                    ${hotReloadScript}
                 </script>
             </head>
             <body></body>
-            <script nonce="${nonce}" src="${scriptUri}"></script>
+            <script nonce="${nonce}" data-compass-hot-script="true" src="${scriptUri}"></script>
             </html>`;
     }
 }

@@ -78,7 +78,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await setConfiguredVivadoSettings64Path(settings64Path);
 			await updateLocalSupport(compassSidebar);
 		},
-		context.secrets
+		context.secrets,
+		context.extensionMode
 	);
 
 	context.subscriptions.push(

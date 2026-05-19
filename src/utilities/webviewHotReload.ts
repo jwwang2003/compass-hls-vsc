@@ -123,6 +123,18 @@ export function createWebviewHotReloadScript(options: WebviewHotReloadClientOpti
     })();`;
 }
 
+export function createDevelopmentWebviewHotReloadScript(
+    extensionMode: vscode.ExtensionMode,
+    options: WebviewHotReloadClientOptions
+): string {
+    const developmentMode = vscode.ExtensionMode?.Development ?? 2;
+    if (extensionMode !== developmentMode) {
+        return "";
+    }
+
+    return createWebviewHotReloadScript(options);
+}
+
 function uriToFileName(uri: vscode.Uri | undefined): string {
     if (!uri) {
         return "unknown";

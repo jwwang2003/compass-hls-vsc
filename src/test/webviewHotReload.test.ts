@@ -104,6 +104,22 @@ test("webview hot reload client swaps styles and remounts scripts", () => {
     assert.match(script, /nextScript\.nonce = "abc"/);
 });
 
+test("webview hot reload client script is only emitted in development mode", () => {
+    const vscode = createVscodeStub();
+    const { createDevelopmentWebviewHotReloadScript } = loadHotReloadModule(vscode);
+    const options = {
+        nonce: "abc",
+        scriptUri: "vscode-resource:/out/compiled/MainSidebar.js",
+        styleUris: ["vscode-resource:/out/compiled/MainSidebar.css"],
+    };
+
+    assert.equal(createDevelopmentWebviewHotReloadScript(vscode.ExtensionMode.Production, options), "");
+    assert.match(
+        createDevelopmentWebviewHotReloadScript(vscode.ExtensionMode.Development, options),
+        /\[Compass HMR\] client ready/
+    );
+});
+
 function loadHotReloadModule(vscode: ReturnType<typeof createVscodeStub>) {
     const resolved = requireModule.resolve("../utilities/webviewHotReload");
     delete requireModule.cache[resolved];

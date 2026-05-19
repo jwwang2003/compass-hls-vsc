@@ -37,7 +37,7 @@ import {
 import { TdmConfigService } from "../parser/tdmConfigService";
 import { getNonce } from "../utilities/getNonce";
 import { versionedWebviewUri } from "../utilities/webviewCacheBust";
-import { createWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
+import { createDevelopmentWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
 import type { VivadoDiscoveryStatus } from "../utilities/vivadoDiscovery";
 import { ResultPanel } from "./ResultPanel";
 import { Sidebar } from "./Sidebar";
@@ -58,7 +58,8 @@ export class CompassSidebar implements Sidebar {
         private readonly extensionUri: vscode.Uri,
         private readonly tdmConfigService?: TdmConfigService,
         private readonly onSelectVivadoSettings64Path?: (settings64Path: string) => Promise<void> | void,
-        secretStorage: SecretStorageLike = createVolatileSecretStorage()
+        secretStorage: SecretStorageLike = createVolatileSecretStorage(),
+        private readonly extensionMode: vscode.ExtensionMode = 1 as vscode.ExtensionMode
     ) {
         this.remoteInferenceSecrets = new RemoteInferenceSecrets(secretStorage);
     }
@@ -297,7 +298,7 @@ export class CompassSidebar implements Sidebar {
             return;
         }
 
-        const panel = ResultPanel.createOrShow(this.extensionUri, runId ?? "latest");
+        const panel = ResultPanel.createOrShow(this.extensionUri, runId ?? "latest", this.extensionMode);
         panel.setRunSelectionHandler(async selectedRunId => {
             await this.renderSelectedRun(panel, workspaceFolder.uri, selectedRunId);
         });
@@ -998,7 +999,7 @@ export class CompassSidebar implements Sidebar {
         );
         const styleMainUri = versionedWebviewUri(styleMainBaseUri, this.webviewResourceVersion);
         const nonce = getNonce();
-        const hotReloadScript = createWebviewHotReloadScript({
+        const hotReloadScript = createDevelopmentWebviewHotReloadScript(this.extensionMode, {
             nonce,
             scriptUri: scriptBaseUri.toString(),
             styleUris: [styleMainBaseUri.toString()],

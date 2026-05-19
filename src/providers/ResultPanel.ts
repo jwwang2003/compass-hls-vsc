@@ -7,7 +7,7 @@ import type {
 } from "../services/hgboDseRunner";
 import { getNonce } from "../utilities/getNonce";
 import { versionedWebviewUri } from "../utilities/webviewCacheBust";
-import { createWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
+import { createDevelopmentWebviewHotReloadScript, type WebviewHotUpdate } from "../utilities/webviewHotReload";
 
 export class ResultPanel {
     public static currentPanel: ResultPanel | undefined;
@@ -20,7 +20,11 @@ export class ResultPanel {
     private onLoadArtifact: ((runId: string, artifactId: string) => Promise<HgboRunArtifactContent | undefined> | HgboRunArtifactContent | undefined) | undefined;
     private webviewResourceVersion = 0;
 
-    public static createOrShow(extensionUri: vscode.Uri, inferenceId = "latest"): ResultPanel {
+    public static createOrShow(
+        extensionUri: vscode.Uri,
+        inferenceId = "latest",
+        extensionMode: vscode.ExtensionMode = 1 as vscode.ExtensionMode
+    ): ResultPanel {
         const column = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
 
         if (ResultPanel.currentPanel) {
@@ -39,7 +43,7 @@ export class ResultPanel {
             }
         );
 
-        ResultPanel.currentPanel = new ResultPanel(panel, extensionUri, inferenceId);
+        ResultPanel.currentPanel = new ResultPanel(panel, extensionUri, inferenceId, extensionMode);
         return ResultPanel.currentPanel;
     }
 
@@ -50,7 +54,8 @@ export class ResultPanel {
     private constructor(
         private readonly panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
-        private inferenceId: string
+        private inferenceId: string,
+        private readonly extensionMode: vscode.ExtensionMode
     ) {
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
         this.panel.webview.onDidReceiveMessage(this.handleMessage.bind(this), null, this.disposables);
@@ -201,7 +206,7 @@ export class ResultPanel {
             vscode.Uri.joinPath(this.extensionUri, "out", "compiled", "Result.css")
         );
         const styleUri = versionedWebviewUri(styleBaseUri, this.webviewResourceVersion);
-        const hotReloadScript = createWebviewHotReloadScript({
+        const hotReloadScript = createDevelopmentWebviewHotReloadScript(this.extensionMode, {
             nonce,
             scriptUri: scriptBaseUri.toString(),
             styleUris: [styleBaseUri.toString()],

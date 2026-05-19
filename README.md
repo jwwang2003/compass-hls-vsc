@@ -21,17 +21,6 @@ The extension is intended to streamline a machine-learning-assisted Vitis HLS wo
 
 ## Technology Stack
 
-<div style="margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-  <img src="readme_assets/imgs/svelte.png" height="50px" />
-  <img src="readme_assets/imgs/tailwind.svg" height="50px" />
-  <img src="readme_assets/imgs/treesitter.png" height="50px" />
-  <img src="readme_assets/imgs/typescript.png" height="50px" />
-  <img src="readme_assets/imgs/vscode.png" height="50px" />
-  <img src="readme_assets/imgs/pytorch.png" height="50px" />
-  <img src="readme_assets/imgs/python.png" height="50px" />
-  <img src="readme_assets/imgs/docker.png" height="50px" />
-</div>
-
 - **Extension**: TypeScript, VS Code Extension API, Webpack
 - **Webviews**: Svelte, Tailwind CSS, Rollup
 - **C analysis**: `web-tree-sitter`, `tree-sitter`, `tree-sitter-c`

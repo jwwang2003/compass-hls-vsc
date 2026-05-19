@@ -29,6 +29,9 @@ export function registerWebviewHotReload(
         return;
     }
 
+    const log = vscode.window.createOutputChannel("Compass HMR");
+    log.appendLine(`[Compass HMR] registered: watching out/compiled/*.{js,css} for ${targets.length} target(s)`);
+
     let version = 0;
     const pendingFiles: string[] = [];
     const reload = new DebouncedAction(() => {
@@ -39,6 +42,9 @@ export function registerWebviewHotReload(
             hasStyle: files.some(isStyleAsset),
             version: ++version,
         };
+        log.appendLine(
+            `[Compass HMR] dispatch v${update.version}: script=${update.hasScript} style=${update.hasStyle} files=${update.files.join(", ")}`
+        );
 
         for (const target of targets) {
             if (target.hotReloadWebview) {
@@ -64,6 +70,7 @@ export function registerWebviewHotReload(
         watcher.onDidCreate(scheduleReload),
         watcher.onDidChange(scheduleReload),
         watcher.onDidDelete(scheduleReload),
+        log,
         reload
     );
 }
@@ -72,6 +79,7 @@ export function createWebviewHotReloadScript(options: WebviewHotReloadClientOpti
     return `(function () {
         const scriptUri = ${JSON.stringify(options.scriptUri)};
         const styleUris = ${JSON.stringify(options.styleUris)};
+        console.debug("[Compass HMR] client ready");
         const withVersion = (uri, version) => {
             const separator = uri.includes("?") ? "&" : "?";
             return uri + separator + "v=" + encodeURIComponent(String(version));
@@ -82,6 +90,7 @@ export function createWebviewHotReloadScript(options: WebviewHotReloadClientOpti
                 const link = document.querySelector(selector);
                 if (link) {
                     link.href = withVersion(styleUri, version);
+                    console.debug("[Compass HMR] style refreshed", styleUri, version);
                 }
             }
         };
@@ -91,7 +100,10 @@ export function createWebviewHotReloadScript(options: WebviewHotReloadClientOpti
             nextScript.nonce = ${JSON.stringify(options.nonce)};
             nextScript.src = withVersion(scriptUri, version);
             nextScript.setAttribute("data-compass-hot-script", "true");
-            nextScript.onload = () => oldScript?.remove();
+            nextScript.onload = () => {
+                oldScript?.remove();
+                console.debug("[Compass HMR] script remounted", scriptUri, version);
+            };
             document.body.appendChild(nextScript);
         };
         window.addEventListener("message", event => {
@@ -99,6 +111,7 @@ export function createWebviewHotReloadScript(options: WebviewHotReloadClientOpti
             if (!message || message.type !== "compassHotReload") {
                 return;
             }
+            console.debug("[Compass HMR] update", message.value);
 
             if (message.value?.hasStyle) {
                 updateStyles(message.value.version);

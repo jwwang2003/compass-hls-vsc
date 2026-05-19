@@ -18,6 +18,7 @@ test("webview hot reload is only registered in extension development mode", () =
 
     assert.equal(vscode.watchers.length, 0);
     assert.equal(context.subscriptions.length, 0);
+    assert.deepEqual(vscode.debugLogs, []);
 });
 
 test("webview hot reload watches compiled assets and sends batched hot updates", async () => {
@@ -43,6 +44,7 @@ test("webview hot reload watches compiled assets and sends batched hot updates",
     assert.equal(vscode.watchers.length, 1);
     assert.equal(vscode.watchers[0].pattern.base, context.extensionUri);
     assert.equal(vscode.watchers[0].pattern.pattern, "out/compiled/*.{js,css}");
+    assert.ok(vscode.debugLogs.some(line => line.includes("[Compass HMR] registered")));
 
     vscode.watchers[0].listeners.change(createUri("/extension/out/compiled/MainSidebar.css"));
     vscode.watchers[0].listeners.create(createUri("/extension/out/compiled/MainSidebar.js"));
@@ -60,6 +62,9 @@ test("webview hot reload watches compiled assets and sends batched hot updates",
         version: 1,
     }]);
     assert.deepEqual(resultUpdates, sidebarUpdates);
+    assert.ok(vscode.debugLogs.some(line =>
+        line.includes("[Compass HMR] dispatch v1") && line.includes("script=true") && line.includes("style=true")
+    ));
     assert.ok(context.subscriptions.length >= 5);
 });
 
@@ -89,6 +94,10 @@ test("webview hot reload client swaps styles and remounts scripts", () => {
     });
 
     assert.match(script, /compassHotReload/);
+    assert.match(script, /\[Compass HMR\] client ready/);
+    assert.match(script, /\[Compass HMR\] update/);
+    assert.match(script, /\[Compass HMR\] style refreshed/);
+    assert.match(script, /\[Compass HMR\] script remounted/);
     assert.match(script, /data-compass-hot-style/);
     assert.match(script, /data-compass-hot-script/);
     assert.match(script, /document\.createElement\("script"\)/);
@@ -133,6 +142,7 @@ function createVscodeStub() {
         pattern: { base: unknown; pattern: string };
         listeners: Record<"create" | "change" | "delete", Listener>;
     }> = [];
+    const debugLogs: string[] = [];
 
     class RelativePattern {
         constructor(
@@ -149,6 +159,16 @@ function createVscodeStub() {
             Development: 2,
         },
         RelativePattern,
+        window: {
+            createOutputChannel() {
+                return {
+                    appendLine(line: string) {
+                        debugLogs.push(line);
+                    },
+                    dispose: () => undefined,
+                };
+            },
+        },
         workspace: {
             createFileSystemWatcher(pattern: { base: unknown; pattern: string }) {
                 const listeners: Record<"create" | "change" | "delete", Listener> = {
@@ -176,6 +196,7 @@ function createVscodeStub() {
             },
         },
         watchers,
+        debugLogs,
     };
 }
 

@@ -50,7 +50,7 @@ test("buildTdmCodeLensItems collapses parameter and loop controls", () => {
         "tdmOptimizer.pickLoopDirectives",
         "tdmOptimizer.pickLoopDirectives",
     ]);
-    assert.equal(items[1].title, "$(list-selection)InterList\u00a0\u00a0$(symbol-method)[bfs] (1/2)");
+    assert.equal(items[1].title, "$(list-selection)Params\u00a0\u00a0$(symbol-method)[bfs] (1/2)");
     assert.deepEqual(items[1].arguments, [
         "bfs",
         [
@@ -96,7 +96,7 @@ test("buildTdmCodeLensItems groups dictOp int hints by loop", () => {
         "tdmOptimizer.pickLoopDirectives",
         "tdmOptimizer.pickDictOpInt",
     ]);
-    assert.equal(items[1].title, "| $(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_i] (1/2)");
+    assert.equal(items[1].title, "| $(symbol-operator)Loop Ops\u00a0\u00a0$(tag)[bfs/loop_i] (1/2)");
     assert.deepEqual(items[1].arguments, [
         "bfs/loop_i",
         [
@@ -127,8 +127,8 @@ test("buildTdmCodeLensItems groups dictOp hints separately by loop", () => {
     }]);
 
     assert.deepEqual(items.map(item => item.title), [
-        "$(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_i] (0/1)",
-        "$(symbol-operator)dictOp.int\u00a0\u00a0$(tag)[bfs/loop_j] (0/1)",
+        "$(symbol-operator)Loop Ops\u00a0\u00a0$(tag)[bfs/loop_i] (0/1)",
+        "$(symbol-operator)Loop Ops\u00a0\u00a0$(tag)[bfs/loop_j] (0/1)",
     ]);
     assert.deepEqual(items.map(item => item.arguments[0]), ["bfs/loop_i", "bfs/loop_j"]);
 });

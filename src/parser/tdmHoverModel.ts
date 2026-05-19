@@ -38,7 +38,7 @@ export function buildDictOpIntHoverAction(input: DictOpIntHoverInput): DictOpInt
         commandArguments,
         commandUri,
         configKey,
-        markdown: `[Add to \`dictOp.int\`](${commandUri})`,
+        markdown: `[Add to Loop Ops](${commandUri})`,
         operation,
         typeName: "int",
     };

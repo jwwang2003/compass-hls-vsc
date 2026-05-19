@@ -54,7 +54,7 @@ export function buildTdmCodeLensItems(
             const selectedCount = fn.parameters.filter(param => isParamSelected(config, param.ref)).length;
             items.push({
                 range: fn.range,
-                title: `${formatCodeLensPair("$(list-selection)", "InterList")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("symbol-method", fn.name)} (${selectedCount}/${fn.parameters.length})`,
+                title: `${formatCodeLensPair("$(list-selection)", "Params")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("symbol-method", fn.name)} (${selectedCount}/${fn.parameters.length})`,
                 command: "tdmOptimizer.pickFunctionInterList",
                 arguments: [
                     fn.name,
@@ -87,7 +87,7 @@ export function buildTdmCodeLensItems(
         ).length;
         items.push({
             range: firstHint.range,
-            title: `${separator}${formatCodeLensPair("$(symbol-operator)", "dictOp.int")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", group.loopRef)} (${selectedCount}/${group.hints.length})`,
+            title: `${separator}${formatCodeLensPair("$(symbol-operator)", "Loop Ops")}${CODE_LENS_PAIR_SPACING}${formatHighlightedCodeLensValue("tag", group.loopRef)} (${selectedCount}/${group.hints.length})`,
             command: "tdmOptimizer.pickDictOpInt",
             arguments: [
                 group.loopRef,

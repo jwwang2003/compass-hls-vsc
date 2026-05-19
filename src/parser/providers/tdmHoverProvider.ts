@@ -47,9 +47,9 @@ export class TdmHoverProvider implements vscode.HoverProvider {
         });
 
         const markdown = new vscode.MarkdownString(undefined, true);
-        markdown.appendMarkdown(`**Compass dictOp hint**\n\n`);
+        markdown.appendMarkdown(`**Compass loop operation hint**\n\n`);
         markdown.appendMarkdown(`Variable: \`${hint.variableName}\`\n\n`);
-        markdown.appendMarkdown(`Target: \`dictOp.int\`\n\n`);
+        markdown.appendMarkdown(`Target: \`Loop Ops\`\n\n`);
         markdown.appendMarkdown(`Loop: \`${hint.loopRef}\`\n\n`);
         markdown.appendMarkdown(`Operation: \`${action.operation}\`\n\n`);
         markdown.appendMarkdown(action.markdown);

@@ -101,7 +101,7 @@
       },
       {
         "command": "tdmOptimizer.pickDictOpInt",
-        "title": "Compass: Select dictOp.int Variables"
+        "title": "Compass: Select Loop Operation Variables"
       },
       {
         "command": "tdmOptimizer.addVariable",

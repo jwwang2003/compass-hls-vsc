@@ -344,8 +344,8 @@ async function pickFunctionInterList(
 	}));
 	const selected = await vscode.window.showQuickPick(items, {
 		canPickMany: true,
-		placeHolder: "Select parameters for interList",
-		title: `Compass interList: ${functionName}`,
+		placeHolder: "Select interface parameters for config.yaml",
+		title: `Compass interface parameters: ${functionName}`,
 	});
 
 	if (!selected) {
@@ -402,8 +402,8 @@ async function pickDictOpInt(
 	}));
 	const selected = await vscode.window.showQuickPick(items, {
 		canPickMany: true,
-		placeHolder: "Select variables for dictOp.int",
-		title: `Compass dictOp.int: ${loopRef}`,
+		placeHolder: "Select loop operation variables for config.yaml",
+		title: `Compass loop operations: ${loopRef}`,
 	});
 
 	if (!selected) {

@@ -73,3 +73,14 @@ Do not edit generated bundles by hand. Change the TypeScript/Svelte source and l
 - `mock1/` is the edge-detect sample workspace and has an alternate debug launch.
 
 Both samples keep their original source files and generated Compass artifacts for development checks. Their local VS Code settings point at `../3rdParty/HGBO-DSE/.venv/bin/python`, so create the backend virtualenv with Python 3.9 from the repository root before running local HGBO-DSE flows.
+
+## Vivado Target Modes
+
+Compass keeps model inference mode and Vivado execution target separate in the DSE UI.
+
+- **Inference** chooses host HGP prediction or the HGBO-DSE model MCP endpoint.
+- **Vivado Target** chooses direct local terminal execution or a Vivado MCP host/port target.
+
+The `jwwang2003/vivado-mcp` project provides MCP tools for queued Vivado/Vitis Tcl jobs. In Compass, selecting the MCP target passes `HGBO_VIVADO_EXECUTION_MODE`, `HGBO_VIVADO_MCP_HOST`, and `HGBO_VIVADO_MCP_PORT` into the HGBO-DSE process; selecting local terminal omits those variables.
+
+The inspected `vivado-mcp` implementation uses stdio transport internally. Compass's host/port controls expect a JSON-RPC MCP endpoint at `/mcp`, so local or remote deployments need an HTTP MCP bridge when they are not already exposed that way.

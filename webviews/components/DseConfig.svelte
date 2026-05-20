@@ -6,6 +6,7 @@
     DSE_INFERENCE_OPTIONS,
     DSE_MODE_OPTIONS,
     DSE_SPACE_OPTIONS,
+    DSE_VIVADO_EXECUTION_OPTIONS,
     type DseOptions,
   } from "@/modules/dseOptions";
 
@@ -24,6 +25,9 @@
   let parallel = options.parallel;
   let process = options.process;
   let inferenceMode = options.inferenceMode;
+  let vivadoExecutionMode = options.vivadoExecutionMode;
+  let vivadoMcpHost = options.vivadoMcpHost;
+  let vivadoMcpPort = options.vivadoMcpPort;
 
   $: options = {
     mode: mode as DseOptions["mode"],
@@ -39,6 +43,9 @@
     parallel,
     process,
     inferenceMode: inferenceMode as DseOptions["inferenceMode"],
+    vivadoExecutionMode: vivadoExecutionMode as DseOptions["vivadoExecutionMode"],
+    vivadoMcpHost,
+    vivadoMcpPort,
   };
 
   function inputValue(event: Event): string {
@@ -63,6 +70,31 @@
       <span>Inference</span>
       <RadioSelector bind:value={inferenceMode} options={DSE_INFERENCE_OPTIONS} orientation="horizontal" />
     </div>
+    <div class="field wide">
+      <span>Vivado Target</span>
+      <RadioSelector bind:value={vivadoExecutionMode} options={DSE_VIVADO_EXECUTION_OPTIONS} orientation="horizontal" />
+    </div>
+    {#if vivadoExecutionMode === "mcp"}
+      <div class="field">
+        <span>MCP Host</span>
+        <vscode-text-field
+          value={vivadoMcpHost}
+          placeholder="localhost"
+          on:input={(event) => (vivadoMcpHost = inputValue(event))}
+        ></vscode-text-field>
+      </div>
+      <div class="field">
+        <span>MCP Port</span>
+        <input
+          class="compact-input"
+          type="number"
+          min="1"
+          max="65535"
+          value={vivadoMcpPort}
+          on:input={(event) => (vivadoMcpPort = inputNumber(event, vivadoMcpPort))}
+        />
+      </div>
+    {/if}
     <div class="field">
       <span>Case</span>
       <vscode-text-field value={caseName} on:input={(event) => (caseName = inputValue(event))}></vscode-text-field>

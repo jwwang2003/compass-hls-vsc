@@ -27,6 +27,11 @@ export const DSE_INFERENCE_OPTIONS = [
   { label: "remote", value: "remote" },
 ];
 
+export const DSE_VIVADO_EXECUTION_OPTIONS = [
+  { label: "Local Terminal", value: "local" },
+  { label: "MCP", value: "mcp" },
+];
+
 export type DseOptions = {
   mode: "hgp" | "impl";
   bench: string;
@@ -41,6 +46,9 @@ export type DseOptions = {
   parallel: boolean;
   process: number;
   inferenceMode: "host" | "remote";
+  vivadoExecutionMode: "local" | "mcp";
+  vivadoMcpHost: string;
+  vivadoMcpPort: number;
 };
 
 export type DseStatus = {
@@ -74,6 +82,9 @@ export function createDefaultDseOptions(): DseOptions {
     parallel: false,
     process: 1,
     inferenceMode: "host",
+    vivadoExecutionMode: "local",
+    vivadoMcpHost: "localhost",
+    vivadoMcpPort: 8080,
   };
 }
 

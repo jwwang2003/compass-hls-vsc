@@ -43,6 +43,10 @@ test("buildHgboDseEnvironment preserves host env without mutating it", () => {
     assert.equal(env.HGBO_MCP_URL, undefined);
     assert.equal(env.HGBO_MCP_API_KEY, undefined);
     assert.equal(env.HGBO_REMOTE_TIMEOUT_SEC, undefined);
+    assert.equal(env.HGBO_VIVADO_EXECUTION_MODE, undefined);
+    assert.equal(env.HGBO_VIVADO_MCP_HOST, undefined);
+    assert.equal(env.HGBO_VIVADO_MCP_PORT, undefined);
+    assert.equal(env.HGBO_VIVADO_MCP_URL, undefined);
     assert.notEqual(env, baseEnv);
 });
 
@@ -73,6 +77,56 @@ test("buildHgboDseEnvironment uses explicit remote timeout", () => {
     });
 
     assert.equal(env.HGBO_REMOTE_TIMEOUT_SEC, "45");
+});
+
+test("buildHgboDseEnvironment injects Vivado MCP target env only when selected", () => {
+    const localEnv = buildHgboDseEnvironment({}, undefined, {
+        mode: "hgp",
+        bench: "custom",
+        caseName: "bfs",
+        ver: "bulk",
+        num: 1,
+        alg: "motpe_fl",
+        device: "xc7vx485tffg1761-2",
+        clk: "10",
+        encode: "float",
+        space: "tree",
+        parallel: false,
+        process: 1,
+        inferenceMode: "host",
+        vivadoExecutionMode: "local",
+        vivadoMcpHost: "remote-vivado",
+        vivadoMcpPort: 9000,
+    });
+
+    assert.equal(localEnv.HGBO_VIVADO_EXECUTION_MODE, undefined);
+    assert.equal(localEnv.HGBO_VIVADO_MCP_HOST, undefined);
+    assert.equal(localEnv.HGBO_VIVADO_MCP_PORT, undefined);
+    assert.equal(localEnv.HGBO_VIVADO_MCP_URL, undefined);
+
+    const mcpEnv = buildHgboDseEnvironment({}, undefined, {
+        mode: "hgp",
+        bench: "custom",
+        caseName: "bfs",
+        ver: "bulk",
+        num: 1,
+        alg: "motpe_fl",
+        device: "xc7vx485tffg1761-2",
+        clk: "10",
+        encode: "float",
+        space: "tree",
+        parallel: false,
+        process: 1,
+        inferenceMode: "host",
+        vivadoExecutionMode: "mcp",
+        vivadoMcpHost: "remote-vivado",
+        vivadoMcpPort: 9000,
+    });
+
+    assert.equal(mcpEnv.HGBO_VIVADO_EXECUTION_MODE, "mcp");
+    assert.equal(mcpEnv.HGBO_VIVADO_MCP_HOST, "remote-vivado");
+    assert.equal(mcpEnv.HGBO_VIVADO_MCP_PORT, "9000");
+    assert.equal(mcpEnv.HGBO_VIVADO_MCP_URL, "http://remote-vivado:9000/mcp");
 });
 
 test("redactRemoteInferenceOutput removes the remote API key only when runtime is provided", () => {

@@ -252,7 +252,7 @@
     {projectName}
     {isProjectOpen}
     {initCompassFolder}
-    hostMode={dseOptions.inferenceMode}
+    hostMode={dseOptions.vivadoExecutionMode}
     {localSupported}
     {autoDiscoverEnabled}
     {vivadoDiscovery}

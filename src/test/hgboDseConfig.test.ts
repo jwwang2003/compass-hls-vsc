@@ -24,6 +24,9 @@ test("normalizes DSE options to HGBO-DSE defaults and supported values", () => {
         parallel: true,
         process: "2",
         inferenceMode: "host",
+        vivadoExecutionMode: "mcp",
+        vivadoMcpHost: "vivado-box.local",
+        vivadoMcpPort: "9010",
     });
 
     assert.deepEqual(options, {
@@ -39,7 +42,26 @@ test("normalizes DSE options to HGBO-DSE defaults and supported values", () => {
         parallel: true,
         process: 2,
         inferenceMode: "host",
+        vivadoExecutionMode: "mcp",
+        vivadoMcpHost: "vivado-box.local",
+        vivadoMcpPort: 9010,
     });
+});
+
+test("defaults Vivado execution to local terminal and normalizes MCP host/port", () => {
+    assert.equal(createDefaultDseOptions().vivadoExecutionMode, "local");
+    assert.equal(createDefaultDseOptions().vivadoMcpHost, "localhost");
+    assert.equal(createDefaultDseOptions().vivadoMcpPort, 8080);
+
+    assert.deepEqual(
+        normalizeDseOptions({ vivadoExecutionMode: "mcp", vivadoMcpHost: "  10.0.0.20  ", vivadoMcpPort: 70000 }),
+        {
+            ...createDefaultDseOptions(),
+            vivadoExecutionMode: "mcp",
+            vivadoMcpHost: "10.0.0.20",
+            vivadoMcpPort: 8080,
+        }
+    );
 });
 
 test("defaults packaged DSE benchmark namespace to custom", () => {

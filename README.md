@@ -17,7 +17,8 @@ The extension is intended to streamline a machine-learning-assisted Vitis HLS wo
 - **Project reset**: removes generated Compass YAML files, project metadata, logs, packages, and run artifacts while leaving the original source tree intact.
 - **Inference + DSE execution**: launches the bundled `3rdParty/HGBO-DSE` Python flow with configurable DSE options.
 - **Results UI**: opens previous runs, logs, generated files, DSE plots, Pareto study data, and implementation verification output.
-- **Local and remote modes**: local mode is Linux-first and expects Vitis/Vivado 2022.1; remote inference is supported by a Dockerized MCP service.
+- **Local and remote modes**: local mode is Linux-first and expects Vitis/Vivado 2022.1; remote HGP model inference is supported by a Dockerized MCP service.
+- **Vivado execution target**: choose local terminal execution or a Vivado MCP target with host and port settings in the DSE UI.
 
 ## Technology Stack
 
@@ -145,6 +146,27 @@ pnpm test                 # run VS Code extension tests
 ```
 
 In Extension Development mode, `pnpm run watch` enables webview HMR-style updates for rebuilt Rollup assets: CSS is swapped in place and rebuilt webview scripts remount the active Svelte app without replacing the whole webview document. See [Development Workflow](docs/DEVELOPMENT.md).
+
+## Vivado Execution Target
+
+The DSE UI has a separate **Vivado Target** selector:
+
+- **Local Terminal** keeps the existing behavior and runs Vitis/Vivado through the host terminal environment.
+- **MCP** records a Vivado MCP host and port for local or remote MCP-backed execution.
+
+The referenced `jwwang2003/vivado-mcp` repository is an MCP server for queued Vivado and Vitis Tcl jobs. Its current implementation exposes tools such as `vivado_submit_job`, `vivado_job_status`, `vivado_job_logs`, `vivado_cancel_job`, `vivado_artifacts`, and `vivado_versions`; Vivado itself stays installed on the host and is bind-mounted into the MCP container.
+
+Compass's host/port fields target a JSON-RPC MCP endpoint at `http://<host>:<port>/mcp`. If your Vivado MCP deployment uses stdio transport directly, run it behind an MCP HTTP bridge or equivalent remote transport before selecting **MCP** in Compass.
+
+Compass now carries the selected target into the HGBO-DSE child-process environment as:
+
+```text
+HGBO_VIVADO_EXECUTION_MODE=mcp
+HGBO_VIVADO_MCP_HOST=<host>
+HGBO_VIVADO_MCP_PORT=<port>
+```
+
+When **Local Terminal** is selected, these variables are omitted so HGBO-DSE uses the direct local terminal flow.
 
 ## Remote Inference Services
 

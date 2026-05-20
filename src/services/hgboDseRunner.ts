@@ -146,7 +146,8 @@ export const C_FUNCTION_PATTERN = /\b[A-Za-z_][A-Za-z0-9_\s\*]*\b([A-Za-z_][A-Za
 
 export function buildHgboDseEnvironment(
     baseEnv: NodeJS.ProcessEnv,
-    remoteInference?: RemoteInferenceRuntime
+    remoteInference?: RemoteInferenceRuntime,
+    dseOptions?: DseOptions
 ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = {
         ...baseEnv,
@@ -161,6 +162,18 @@ export function buildHgboDseEnvironment(
         delete env.HGBO_MCP_URL;
         delete env.HGBO_MCP_API_KEY;
         delete env.HGBO_REMOTE_TIMEOUT_SEC;
+    }
+
+    if (dseOptions?.vivadoExecutionMode === "mcp") {
+        env.HGBO_VIVADO_EXECUTION_MODE = "mcp";
+        env.HGBO_VIVADO_MCP_HOST = dseOptions.vivadoMcpHost;
+        env.HGBO_VIVADO_MCP_PORT = String(dseOptions.vivadoMcpPort);
+        env.HGBO_VIVADO_MCP_URL = `http://${dseOptions.vivadoMcpHost}:${dseOptions.vivadoMcpPort}/mcp`;
+    } else {
+        delete env.HGBO_VIVADO_EXECUTION_MODE;
+        delete env.HGBO_VIVADO_MCP_HOST;
+        delete env.HGBO_VIVADO_MCP_PORT;
+        delete env.HGBO_VIVADO_MCP_URL;
     }
 
     return env;
@@ -350,7 +363,7 @@ export async function runHgboDse(
     return new Promise((resolve, reject) => {
         const child = spawn(pythonPath, args, {
             cwd: hgboRootUri.fsPath,
-            env: buildHgboDseEnvironment(process.env, remoteInference),
+            env: buildHgboDseEnvironment(process.env, remoteInference, options),
         });
 
         const handleText = createProcessTextHandler(options, callbacks, logChunks, remoteInference);
@@ -460,7 +473,7 @@ export async function runHgboImplVerification(
     await new Promise<void>((resolve, reject) => {
         const child = spawn(pythonPath, args, {
             cwd: hgboRootUri.fsPath,
-            env: buildHgboDseEnvironment(process.env),
+            env: buildHgboDseEnvironment(process.env, undefined, options),
         });
         const selectedTrialOrder = selectedEntries.map(entry => entry.trial);
         const handleText = createImplVerificationTextHandler(selectedTrialOrder, callbacks, logChunks, logUri.fsPath);

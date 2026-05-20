@@ -4,6 +4,9 @@ export const DSE_DEVICES = ["xc7vx485tffg1761-2"] as const;
 export const DSE_ENCODINGS = ["float", "discrete"] as const;
 export const DSE_SPACES = ["homo", "tree"] as const;
 export const DSE_INFERENCE_MODES = ["host", "remote"] as const;
+export const DSE_VIVADO_EXECUTION_MODES = ["local", "mcp"] as const;
+export const DEFAULT_VIVADO_MCP_HOST = "localhost";
+export const DEFAULT_VIVADO_MCP_PORT = 8080;
 
 export type DseMode = typeof DSE_MODES[number];
 export type DseAlgorithm = typeof DSE_ALGORITHMS[number];
@@ -11,6 +14,7 @@ export type DseDevice = typeof DSE_DEVICES[number];
 export type DseEncoding = typeof DSE_ENCODINGS[number];
 export type DseSpace = typeof DSE_SPACES[number];
 export type DseInferenceMode = typeof DSE_INFERENCE_MODES[number];
+export type DseVivadoExecutionMode = typeof DSE_VIVADO_EXECUTION_MODES[number];
 
 export interface DseOptions {
     mode: DseMode;
@@ -26,6 +30,9 @@ export interface DseOptions {
     parallel: boolean;
     process: number;
     inferenceMode: DseInferenceMode;
+    vivadoExecutionMode: DseVivadoExecutionMode;
+    vivadoMcpHost: string;
+    vivadoMcpPort: number;
 }
 
 export interface HgboDsePathOptions {
@@ -63,6 +70,9 @@ export function createDefaultDseOptions(): DseOptions {
         parallel: false,
         process: 1,
         inferenceMode: "host",
+        vivadoExecutionMode: "local",
+        vivadoMcpHost: DEFAULT_VIVADO_MCP_HOST,
+        vivadoMcpPort: DEFAULT_VIVADO_MCP_PORT,
     };
 }
 
@@ -93,6 +103,9 @@ export function normalizeDseOptions(input: unknown): DseOptions {
         parallel: booleanValue(record.parallel, defaults.parallel),
         process: boundedInteger(record.process ?? record.processNum, defaults.process, 1, 1024),
         inferenceMode: enumValue(record.inferenceMode, DSE_INFERENCE_MODES, defaults.inferenceMode),
+        vivadoExecutionMode: enumValue(record.vivadoExecutionMode, DSE_VIVADO_EXECUTION_MODES, defaults.vivadoExecutionMode),
+        vivadoMcpHost: hostValue(record.vivadoMcpHost, defaults.vivadoMcpHost),
+        vivadoMcpPort: boundedInteger(record.vivadoMcpPort, defaults.vivadoMcpPort, 1, 65_535),
     };
 }
 
@@ -111,6 +124,15 @@ function isPlainPathName(value: string): boolean {
         value !== ".." &&
         !/[\\/]/.test(value) &&
         !value.includes("\0");
+}
+
+function hostValue(value: unknown, fallback: string): string {
+    if (typeof value !== "string") {
+        return fallback;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : fallback;
 }
 
 export function buildHgboDseArgs(options: DseOptions, paths: HgboDsePathOptions): string[] {

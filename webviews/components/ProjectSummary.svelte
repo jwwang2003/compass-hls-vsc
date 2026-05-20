@@ -31,7 +31,7 @@
 
   <div class="status-grid">
     <span class:good={initCompassFolder}>{initCompassFolder ? "Compass ready" : "Not initialized"}</span>
-    <span>{hostMode === "remote" ? "Remote host" : "Local host"}</span>
+    <span>{hostMode === "mcp" ? "Vivado MCP" : "Local terminal"}</span>
     <span class:good={localSupported}>{localSupported ? "Local available" : "Remote only"}</span>
     {#if vivadoDiscovery.selectedVersion}
       <span class="good">Vivado {vivadoDiscovery.selectedVersion}</span>

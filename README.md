@@ -77,13 +77,15 @@ uv venv --python 3.9
 uv sync
 ```
 
+The local runner prefers `3rdParty/HGBO-DSE/.venv/bin/python` when that file exists, then falls back to `python3.9`. Keep the bundled `3rdParty/HGBO-DSE/hgp/model/*_checkpoint_*.pt` files in place; they are the original HGBO-DSE model weights used by the HGP inference flow.
+
 Verify the main Python dependencies:
 
 ```bash
 uv run python -c "import optuna, torch, torch_geometric, torch_scatter, torch_sparse; print('HGBO deps OK')"
 ```
 
-Then point VS Code at that Python environment with the `compass.hgboPythonPath` setting. For example:
+If you use a different Python 3.9 environment, point VS Code at it with the `compass.hgboPythonPath` setting. For example:
 
 ```json
 {
@@ -105,8 +107,8 @@ Use the VS Code launch configuration:
 
 1. Open this repository in VS Code.
 2. Run `pnpm run watch`, or let the launch task start it for you.
-3. Press `F5` and choose **Run Extension**.
-4. In the Extension Development Host, open a workspace that contains a `.c` file.
+3. Press `F5` and choose **Run Extension (mock0)**. This is the default debug launch and opens the `mock0` sample workspace in the Extension Development Host.
+4. Use **Run Extension (mock1)** when you want the `edge_detect` sample instead, or open any workspace that contains a `.c` file.
 5. Open the Compass activity-bar view.
 
 Typical Compass flow:
@@ -229,6 +231,8 @@ docker compose down
 - `src/utilities/webviewHotReload.ts`: development-mode webview HMR wiring for Rollup output.
 - `webviews/`: Svelte webview pages, components, styles, and browser-side modules.
 - `resources/`: tree-sitter WASM grammar assets.
+- `mock0/`: BFS sample workspace used by the default extension debug launch.
+- `mock1/`: edge-detect sample workspace used by the alternate extension debug launch.
 - `3rdParty/HGBO-DSE/`: Python DSE backend and model code.
 - `.compass/`: generated per-workspace metadata, packages, runs, logs, and artifacts.
 
@@ -241,7 +245,7 @@ docker compose down
 ## Extension Settings
 
 - `compass.vivadoSettings64Path`: optional path to the Vitis/Vivado `settings64.sh` script. Use this when auto-discovery cannot safely choose one.
-- `compass.hgboPythonPath`: Python executable used to launch `3rdParty/HGBO-DSE`.
+- `compass.hgboPythonPath`: Python executable used to launch `3rdParty/HGBO-DSE`. Defaults to the bundled Python 3.9 virtualenv when present, otherwise `python3.9`.
 - `compass.remoteInferenceMcpEndpoint`: MCP endpoint for Dockerized remote HGBO-DSE inference. Defaults to `http://localhost:8000/mcp`.
 
 ## Known Issues

@@ -17,27 +17,27 @@ config.yaml
 param.yaml
 params.yaml
 call_graph.png
-!mock/config.yaml
-!mock/params.yaml
-!mock2/config.yaml
-!mock2/params.yaml
+!mock0/config.yaml
+!mock0/params.yaml
+!mock1/config.yaml
+!mock1/params.yaml
 
 references/*
 
 # Compass sample project generated/local artifacts
 .compass/
-mock/.compass/
-mock/.vscode/
-mock/.Xil/
-mock/*_vitis_prj/
-mock/vitis_hls.log
-mock/bfs
-mock/*.zip
+mock0/.compass/
+mock0/.vscode/
+mock0/.Xil/
+mock0/*_vitis_prj/
+mock0/vitis_hls.log
+mock0/bfs
+mock0/*.zip
 
-mock2/.compass/
-mock2/.vscode/
-mock2/.Xil/
-mock2/*_vitis_prj/
-mock2/vitis_hls.log
-mock2/edge_detect
-mock2/*.zip
+mock1/.compass/
+mock1/.vscode/
+mock1/.Xil/
+mock1/*_vitis_prj/
+mock1/vitis_hls.log
+mock1/edge_detect
+mock1/*.zip

@@ -61,8 +61,8 @@ test(".vscodeignore excludes bulky development artifacts while preserving runtim
         "out/states/**",
         "out/utilities/**",
         "dist/**/*.map",
-        "mock/**",
-        "mock2/**",
+        "mock0/**",
+        "mock1/**",
         "3rdParty/HGBO-DSE/.venv/**",
         "3rdParty/HGBO-DSE/.pytest_cache/**",
         "3rdParty/HGBO-DSE/.idea/**",
@@ -87,6 +87,53 @@ test(".vscodeignore excludes bulky development artifacts while preserving runtim
 
     for (const runtimeRoot of ["dist/**", "out/compiled/**", "media/**", "resources/**", "3rdParty/**", "3rdParty/HGBO-DSE/**"]) {
         assert.ok(!vscodeIgnore.includes(runtimeRoot), `.vscodeignore must not exclude runtime root: ${runtimeRoot}`);
+    }
+
+    assert.ok(!vscodeIgnore.includes("mock/**"), ".vscodeignore must use mock0/mock1 sample names");
+    assert.ok(!vscodeIgnore.includes("mock2/**"), ".vscodeignore must use mock0/mock1 sample names");
+    assert.ok(!vscodeIgnore.includes("3rdParty/HGBO-DSE/hgp/model/**"), ".vscodeignore must keep original HGBO-DSE weights");
+});
+
+test("debug launch opens mock0 by default and keeps mock1 available", () => {
+    const launchJson = readFileSync(path.join(process.cwd(), ".vscode", "launch.json"), "utf8");
+
+    assert.match(launchJson, /"name":\s*"Run Extension \(mock0\)"/);
+    assert.match(launchJson, /"--extensionDevelopmentPath=\$\{workspaceFolder\}"/);
+    assert.match(launchJson, /"\$\{workspaceFolder\}\/mock0"/);
+    assert.match(launchJson, /"name":\s*"Run Extension \(mock1\)"/);
+    assert.match(launchJson, /"\$\{workspaceFolder\}\/mock1"/);
+    assert.doesNotMatch(launchJson, /mock2/);
+});
+
+test("sample workspaces point at the relative HGBO-DSE Python 3.9 virtualenv", () => {
+    for (const sampleName of ["mock0", "mock1"]) {
+        const settings = JSON.parse(readFileSync(path.join(process.cwd(), sampleName, ".vscode", "settings.json"), "utf8"));
+
+        assert.equal(settings["compass.hgboPythonPath"], "../3rdParty/HGBO-DSE/.venv/bin/python");
+    }
+});
+
+test("HGBO-DSE defaults target Python 3.9 virtualenv and bundled model weights", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    const sidebarSource = readFileSync(path.join(process.cwd(), "src", "providers", "CompassSidebar.ts"), "utf8");
+    const pyproject = readFileSync(path.join(process.cwd(), "3rdParty", "HGBO-DSE", "pyproject.toml"), "utf8");
+    const uvLock = readFileSync(path.join(process.cwd(), "3rdParty", "HGBO-DSE", "uv.lock"), "utf8");
+
+    assert.equal(packageJson.contributes.configuration.properties["compass.hgboPythonPath"].default, "python3.9");
+    assert.match(sidebarSource, /3rdParty["'],\s*["']HGBO-DSE["'],\s*["']\.venv["'],\s*["']bin["'],\s*["']python/);
+    assert.match(sidebarSource, /3rdParty["'],\s*["']HGBO-DSE["'],\s*["']\.venv["'],\s*["']Scripts["'],\s*["']python\.exe/);
+    assert.match(pyproject, /requires-python\s*=\s*"?>=3\.9,<3\.10"?/);
+    assert.match(uvLock, /requires-python\s*=\s*"==3\.9\.\*"/);
+
+    for (const modelFile of [
+        "bram_mae_h64_d0_checkpoint_test.pt",
+        "cp_mean_h64_d0_checkpoint_test.pt",
+        "dsp_mae_h64_d0_checkpoint_test.pt",
+        "ff_h64_d0_checkpoint_test.pt",
+        "lut_h64_d0_checkpoint_test.pt",
+        "power_mean_h64_d0_checkpoint_test.pt",
+    ]) {
+        assert.ok(readFileSync(path.join(process.cwd(), "3rdParty", "HGBO-DSE", "hgp", "model", modelFile)).byteLength > 0);
     }
 });
 

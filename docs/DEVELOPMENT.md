@@ -15,7 +15,7 @@ This runs two watchers:
 - Rollup watches `webviews/` and rebuilds webview bundles into `out/compiled`.
 - Webpack watches `src/extension.ts` and extension-side TypeScript, then rebuilds `dist/extension.js`.
 
-Then launch the extension from VS Code with **Run Extension**.
+Then launch the extension from VS Code with **Run Extension (mock0)**. That default debug configuration opens the `mock0` sample workspace. Use **Run Extension (mock1)** to debug against the `edge_detect` sample.
 
 ## Webview HMR
 
@@ -66,3 +66,10 @@ Common generated outputs are:
 - `.compass/` workspace artifacts during manual extension testing
 
 Do not edit generated bundles by hand. Change the TypeScript/Svelte source and let the watchers rebuild.
+
+## Sample Workspaces
+
+- `mock0/` is the BFS sample workspace and is used by the default debug launch.
+- `mock1/` is the edge-detect sample workspace and has an alternate debug launch.
+
+Both samples keep their original source files and generated Compass artifacts for development checks. Their local VS Code settings point at `../3rdParty/HGBO-DSE/.venv/bin/python`, so create the backend virtualenv with Python 3.9 from the repository root before running local HGBO-DSE flows.

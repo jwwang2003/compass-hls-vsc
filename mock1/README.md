@@ -1,6 +1,6 @@
-# mock2
+# mock1
 
-`mock2` is a small standalone Vitis HLS sample based on the existing `mock` harness layout. The top function is `edge_detect`, an 8x8 Sobel edge detector with labeled row and column loops for TDM directives.
+`mock1` is a small standalone Vitis HLS sample based on the existing `mock0` harness layout. The top function is `edge_detect`, an 8x8 Sobel edge detector with labeled row and column loops for TDM directives.
 
 Useful commands:
 

@@ -59,8 +59,8 @@ docs/**
 readme_assets/**
 vsc-extension-quickstart.md
 references/**
-mock/**
-mock2/**
+mock0/**
+mock1/**
 common/test/**
 compass-add-fileDir/**
 compass-add-yaml-0323-main/**

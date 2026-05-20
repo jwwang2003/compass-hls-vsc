@@ -5,8 +5,8 @@ import test from "node:test";
 
 import { buildParamYaml } from "../services/paramYaml";
 
-test("buildParamYaml defaults match mock bfs_bulk_p.yaml", () => {
-    const expected = readFileSync(path.join(process.cwd(), "mock", "bfs_bulk_p.yaml"), "utf8");
+test("buildParamYaml defaults match mock0 bfs_bulk_p.yaml", () => {
+    const expected = readFileSync(path.join(process.cwd(), "mock0", "bfs_bulk_p.yaml"), "utf8");
 
     assert.equal(buildParamYaml(), expected);
 });

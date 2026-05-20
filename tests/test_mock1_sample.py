@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 
 
-def test_mock2_sample_builds_and_runs_from_clean_copy(tmp_path):
+def test_mock1_sample_builds_and_runs_from_clean_copy(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
-    sample_root = repo_root / "mock2"
+    sample_root = repo_root / "mock1"
 
     assert sample_root.exists()
     assert not (sample_root / "bfs.c").exists()
@@ -17,9 +17,9 @@ def test_mock2_sample_builds_and_runs_from_clean_copy(tmp_path):
     assert "vitis_hls" in (sample_root / "Makefile").read_text(encoding="utf-8")
 
     if not shutil.which("make") or not shutil.which("gcc"):
-        pytest.skip("mock2 build test requires make and gcc")
+        pytest.skip("mock1 build test requires make and gcc")
 
-    work_root = tmp_path / "mock2"
+    work_root = tmp_path / "mock1"
     shutil.copytree(sample_root, work_root)
 
     subprocess.run(["make", "clean"], cwd=work_root, check=True, text=True, capture_output=True)

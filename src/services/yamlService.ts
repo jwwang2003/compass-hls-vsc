@@ -16,7 +16,7 @@ export interface GenerateYamlFilesOptions {
     paramValues?: ParamYamlMetricInputs;
 }
 
-const SEARCH_EXCLUDES = "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/mock/**,**/readme_assets/**,**/compass-add-fileDir/**,**/compass-add-yaml-0323-main/**}";
+const SEARCH_EXCLUDES = "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/mock0/**,**/mock1/**,**/readme_assets/**,**/compass-add-fileDir/**,**/compass-add-yaml-0323-main/**}";
 
 export async function chooseYamlOutputDirectory(defaultUri: vscode.Uri): Promise<vscode.Uri> {
     const selectedUri = await vscode.window.showOpenDialog({

@@ -1,4 +1,6 @@
 import { spawn } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 
 import {
@@ -41,6 +43,12 @@ import { createDevelopmentWebviewHotReloadScript, type WebviewHotUpdate } from "
 import type { VivadoDiscoveryStatus } from "../utilities/vivadoDiscovery";
 import { ResultPanel } from "./ResultPanel";
 import { Sidebar } from "./Sidebar";
+
+interface ConfigurationInspection<T> {
+    globalValue?: T;
+    workspaceValue?: T;
+    workspaceFolderValue?: T;
+}
 
 export class CompassSidebar implements Sidebar {
     _view?: vscode.WebviewView;
@@ -905,10 +913,51 @@ export class CompassSidebar implements Sidebar {
     }
 
     private getHgboPythonPath(): string {
-        return vscode.workspace
-            .getConfiguration("compass")
-            .get<string>("hgboPythonPath", "python3")
-            .trim() || "python3";
+        const configuration = vscode.workspace.getConfiguration("compass");
+        const configuredPath = configuration.get<string>("hgboPythonPath", "python3.9").trim();
+        const inspected = configuration.inspect<string>("hgboPythonPath");
+
+        if (this.hasExplicitHgboPythonPath(inspected)) {
+            return this.resolveConfiguredHgboPythonPath(configuredPath);
+        }
+
+        return this.getBundledHgboPythonPath() ?? (configuredPath || "python3.9");
+    }
+
+    private hasExplicitHgboPythonPath(inspected: ConfigurationInspection<string> | undefined): boolean {
+        const values = [
+            inspected?.globalValue,
+            inspected?.workspaceValue,
+            inspected?.workspaceFolderValue,
+        ];
+
+        return values.some(value => typeof value === "string" && value.trim().length > 0);
+    }
+
+    private getBundledHgboPythonPath(): string | undefined {
+        const candidates = [
+            vscode.Uri.joinPath(this.extensionUri, "3rdParty", "HGBO-DSE", ".venv", "bin", "python").fsPath,
+            vscode.Uri.joinPath(this.extensionUri, "3rdParty", "HGBO-DSE", ".venv", "Scripts", "python.exe").fsPath,
+        ];
+
+        return candidates.find(candidate => fs.existsSync(candidate));
+    }
+
+    private resolveConfiguredHgboPythonPath(configuredPath: string): string {
+        if (path.isAbsolute(configuredPath) || !this.looksLikePath(configuredPath)) {
+            return configuredPath;
+        }
+
+        const workspacePath = this.getWorkspaceFolder()?.uri.fsPath;
+        if (workspacePath) {
+            return path.resolve(workspacePath, configuredPath);
+        }
+
+        return path.resolve(this.extensionUri.fsPath, configuredPath);
+    }
+
+    private looksLikePath(value: string): boolean {
+        return value.includes("/") || value.includes("\\") || value.startsWith(".");
     }
 
     private getRemoteInferenceEndpoint(): string {

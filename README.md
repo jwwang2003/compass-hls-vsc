@@ -4,6 +4,11 @@ Compass is a VS Code extension for C-source analysis, YAML generation, and Vitis
 
 The extension is intended to streamline a machine-learning-assisted Vitis HLS workflow. It can inspect `.c` files, help generate `config.yaml` and `params.yaml`, package a workspace into `.compass`, run HGBO-DSE, and show generated run artifacts and plots inside VS Code.
 
+## Contributors
+
+Some project contributions were delivered outside GitHub before being
+integrated by the repository maintainer. See [CONTRIBUTORS.md](CONTRIBUTORS.md)
+for the documented contribution scope.
 ## About Compass
 
 ![](readme_assets/imgs/compass_workflow.png)
